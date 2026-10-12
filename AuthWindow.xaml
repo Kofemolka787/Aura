@@ -1,0 +1,267 @@
+<Window x:Class="ColorForge.AuthWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="AURA · Авторизация"
+        Icon="pack://application:,,,/Assets/aura-mark.png"
+        Width="940" Height="620" MinWidth="860" MinHeight="560"
+        WindowStyle="None" ResizeMode="CanResize"
+        Background="{StaticResource WindowGradient}"
+        FontFamily="Segoe UI" SnapsToDevicePixels="True" UseLayoutRounding="True">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="7" CornerRadius="14" GlassFrameThickness="0" />
+  </shell:WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <Style x:Key="AuthField" TargetType="TextBox">
+      <Setter Property="Foreground" Value="#F8F6FC" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="13,0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="CaretBrush" Value="#C88DFF" />
+    </Style>
+    <Style x:Key="AuthPassword" TargetType="PasswordBox">
+      <Setter Property="Foreground" Value="#F8F6FC" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="13,0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="CaretBrush" Value="#C88DFF" />
+    </Style>
+  </Window.Resources>
+
+  <Border BorderBrush="#57366B" BorderThickness="1" CornerRadius="14" Background="{StaticResource WindowGradient}" ClipToBounds="True">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="46" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" Background="#E9080810" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition />
+          <ColumnDefinition Width="92" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
+          <Image Source="pack://application:,,,/Assets/aura-mark.png" Width="25" Height="25" />
+          <TextBlock Text="AURA" FontSize="13" FontWeight="Black" Margin="8,0,0,0" VerticalAlignment="Center" />
+          <Border Background="#2E203B" CornerRadius="7" Padding="7,3" Margin="9,0,0,0">
+            <TextBlock Text="SECURE ACCESS" Foreground="#D4B6EF" FontSize="8" FontWeight="Bold" />
+          </Border>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button Content="—" Width="46" Background="Transparent" Foreground="#B7ADBD" BorderThickness="0" Click="Minimize_Click" />
+          <Button Content="×" Width="46" Background="Transparent" Foreground="#B7ADBD" BorderThickness="0" Click="Close_Click" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="360" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Background="#D8110B1B" BorderBrush="#3D2C49" BorderThickness="0,0,1,0">
+          <Grid ClipToBounds="True">
+            <Ellipse Width="360" Height="360" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-150,-170,0,0" Opacity="0.34">
+              <Ellipse.Fill>
+                <RadialGradientBrush>
+                  <GradientStop Color="#AD40FF" Offset="0" />
+                  <GradientStop Color="#004C1875" Offset="1" />
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+            <Ellipse Width="320" Height="320" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-180,-170" Opacity="0.25">
+              <Ellipse.Fill>
+                <RadialGradientBrush>
+                  <GradientStop Color="#653DFF" Offset="0" />
+                  <GradientStop Color="#00301B69" Offset="1" />
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+
+            <StackPanel Margin="38,52,34,32">
+              <Border Width="92" Height="92" CornerRadius="26" HorizontalAlignment="Left" Background="#24142F" BorderBrush="#75459A" BorderThickness="1">
+                <Image Source="pack://application:,,,/Assets/aura-mark.png" Margin="11" Stretch="Uniform" />
+              </Border>
+              <TextBlock Text="ТВОЙ ЭКРАН.&#x0a;ТВОИ ПРАВИЛА." FontSize="30" FontWeight="Black" LineHeight="34" Margin="0,28,0,0" />
+              <TextBlock Text="Войди в аккаунт и активируй подписку, чтобы открыть все возможности AURA." Foreground="#A198AB" FontSize="12" TextWrapping="Wrap" LineHeight="19" Margin="0,14,0,0" />
+
+              <StackPanel Margin="0,38,0,0">
+                <Grid Margin="0,0,0,17">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="35" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="27" Height="27" CornerRadius="9" Background="#30203E">
+                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="#C98DFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Защищённый вход" FontWeight="SemiBold" FontSize="11" />
+                    <TextBlock Text="Пароль не сохраняется в приложении" Foreground="#827989" FontSize="9" />
+                  </StackPanel>
+                </Grid>
+                <Grid Margin="0,0,0,17">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="35" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="27" Height="27" CornerRadius="9" Background="#30203E">
+                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="#C98DFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Лицензия на устройство" FontWeight="SemiBold" FontSize="11" />
+                    <TextBlock Text="Ключ привязывается после подтверждения" Foreground="#827989" FontSize="9" />
+                  </StackPanel>
+                </Grid>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="35" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <Border Width="27" Height="27" CornerRadius="9" Background="#30203E">
+                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="#C98DFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="30 дней доступа" FontWeight="SemiBold" FontSize="11" />
+                    <TextBlock Text="Срок начинается после активации" Foreground="#827989" FontSize="9" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" Margin="64,34,64,42">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+              <Border x:Name="StepOneBadge" Width="29" Height="29" CornerRadius="15" Background="#8D38FF">
+                <TextBlock Text="1" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Rectangle x:Name="StepLine" Width="42" Height="2" Fill="#36313C" VerticalAlignment="Center" Margin="7,0" />
+              <Border x:Name="StepTwoBadge" Width="29" Height="29" CornerRadius="15" Background="#26232B" BorderBrush="#423C49" BorderThickness="1">
+                <TextBlock Text="2" FontWeight="Bold" Foreground="#8E8698" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </StackPanel>
+            <Border Grid.Column="1" Background="#15261F" CornerRadius="9" Padding="9,5" VerticalAlignment="Center">
+              <TextBlock Text="●  DEMO API" Foreground="#69DEA0" FontSize="8" FontWeight="Bold" />
+            </Border>
+          </Grid>
+
+          <Grid Grid.Row="1" VerticalAlignment="Center">
+            <Grid x:Name="LoginPanel">
+              <StackPanel>
+                <TextBlock Text="Вход в AURA" FontSize="29" FontWeight="Bold" />
+                <TextBlock Text="Используй данные аккаунта, созданного на сайте." Foreground="#91899A" FontSize="11" Margin="0,6,0,25" />
+
+                <TextBlock Text="EMAIL" Foreground="#BDA4D1" FontSize="9" FontWeight="Bold" Margin="2,0,0,7" />
+                <Border Height="48" CornerRadius="11" Background="#141219" BorderBrush="#3B3542" BorderThickness="1">
+                  <TextBox x:Name="EmailTextBox" Style="{StaticResource AuthField}" AutomationProperties.Name="Email" />
+                </Border>
+
+                <TextBlock Text="ПАРОЛЬ" Foreground="#BDA4D1" FontSize="9" FontWeight="Bold" Margin="2,16,0,7" />
+                <Border Height="48" CornerRadius="11" Background="#141219" BorderBrush="#3B3542" BorderThickness="1">
+                  <PasswordBox x:Name="PasswordInput" Style="{StaticResource AuthPassword}" AutomationProperties.Name="Пароль" />
+                </Border>
+
+                <Border x:Name="LoginMessageBorder" Visibility="Collapsed" Background="#331B1F" BorderBrush="#71404A" BorderThickness="1" CornerRadius="9" Padding="11,8" Margin="0,13,0,0">
+                  <TextBlock x:Name="LoginMessageText" Foreground="#FF9AA8" FontSize="10" TextWrapping="Wrap" />
+                </Border>
+
+                <Button x:Name="LoginButton" Style="{StaticResource PrimaryButton}" Content="Войти в аккаунт" Margin="0,18,0,0" Height="46" IsDefault="True" Click="Login_Click" />
+
+                <Border Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,15,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="Тестовый аккаунт" FontSize="10" FontWeight="SemiBold" />
+                      <TextBlock Text="demo@aura.app  ·  aura2026" Foreground="#91879C" FontFamily="Consolas" FontSize="9" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Заполнить" Padding="11,6" MinHeight="30" Click="FillDemoLogin_Click" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </Grid>
+
+            <Grid x:Name="LicensePanel" Visibility="Collapsed">
+              <StackPanel>
+                <TextBlock Text="Активация подписки" FontSize="29" FontWeight="Bold" />
+                <TextBlock Text="Аккаунт подтверждён. Введи ключ, полученный после оплаты." Foreground="#91899A" FontSize="11" Margin="0,6,0,18" TextWrapping="Wrap" />
+
+                <Border Background="#16131C" BorderBrush="#3C3347" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,0,0,18">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="34" />
+                      <ColumnDefinition />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="27" Height="27" CornerRadius="9" Background="#2C1C38">
+                      <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Foreground="#CB8FFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                      <TextBlock x:Name="VerifiedEmailText" Text="demo@aura.app" FontWeight="SemiBold" FontSize="11" />
+                      <TextBlock Text="Аккаунт подтверждён" Foreground="#6FDDA1" FontSize="9" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="✓" Foreground="#69E09E" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="КЛЮЧ ПОДПИСКИ" Foreground="#BDA4D1" FontSize="9" FontWeight="Bold" Margin="2,0,0,7" />
+                <Border Height="50" CornerRadius="11" Background="#141219" BorderBrush="#66458A" BorderThickness="1">
+                  <TextBox x:Name="LicenseKeyTextBox" Style="{StaticResource AuthField}" FontFamily="Consolas" CharacterCasing="Upper" MaxLength="32" AutomationProperties.Name="Ключ подписки" />
+                </Border>
+                <TextBlock x:Name="DeviceIdText" Foreground="#746D7D" FontFamily="Consolas" FontSize="9" Margin="2,7,0,0" />
+
+                <Border x:Name="LicenseMessageBorder" Visibility="Collapsed" Background="#331B1F" BorderBrush="#71404A" BorderThickness="1" CornerRadius="9" Padding="11,8" Margin="0,13,0,0">
+                  <TextBlock x:Name="LicenseMessageText" Foreground="#FF9AA8" FontSize="10" TextWrapping="Wrap" />
+                </Border>
+
+                <Button x:Name="ActivateButton" Style="{StaticResource PrimaryButton}" Content="Активировать на этом ПК" Margin="0,18,0,0" Height="46" IsDefault="True" Click="Activate_Click" />
+                <Button Style="{StaticResource SecondaryButton}" Content="←  Вернуться к входу" Margin="0,9,0,0" Height="40" Click="BackToLogin_Click" />
+
+                <Border Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,14,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="Тестовый ключ на 30 дней" FontSize="10" FontWeight="SemiBold" />
+                      <TextBlock Text="AURA-30D-DEMO-2026" Foreground="#91879C" FontFamily="Consolas" FontSize="9" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Вставить" Padding="11,6" MinHeight="30" Click="FillDemoKey_Click" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </Grid>
+          </Grid>
+
+          <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="© 2026 AURA" Foreground="#615A67" FontSize="9" />
+            <TextBlock Grid.Column="1" Text="Авторизация через защищённое соединение" Foreground="#615A67" FontSize="9" />
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

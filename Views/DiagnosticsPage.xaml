@@ -1,0 +1,147 @@
+<UserControl x:Class="ColorForge.Views.DiagnosticsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:ColorForge.Models"
+             Background="Transparent">
+  <UserControl.Resources>
+    <Style x:Key="MetricCard" TargetType="Border" BasedOn="{StaticResource CardStyle}">
+      <Setter Property="Padding" Value="15" />
+      <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+    <DataTemplate x:Key="AuditTemplate" DataType="{x:Type models:AuditItem}">
+      <Border Background="#15131B" BorderBrush="#342F3B" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,0,0,8">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11" />
+            <TextBlock Text="{Binding Detail}" Foreground="#91879C" FontSize="9" TextWrapping="Wrap" Margin="0,4,12,0" />
+          </StackPanel>
+          <Border x:Name="Badge" Grid.Column="1" Background="#25212D" CornerRadius="8" Padding="8,4" VerticalAlignment="Top">
+            <TextBlock x:Name="BadgeText" Text="{Binding Badge}" FontSize="8" FontWeight="Bold" Foreground="#BEB4C7" />
+          </Border>
+        </Grid>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:AuditSeverity.Good}">
+          <Setter TargetName="Badge" Property="Background" Value="#13271F" />
+          <Setter TargetName="BadgeText" Property="Foreground" Value="#63E2A0" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:AuditSeverity.Caution}">
+          <Setter TargetName="Badge" Property="Background" Value="#302313" />
+          <Setter TargetName="BadgeText" Property="Foreground" Value="#FFC35C" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:AuditSeverity.Critical}">
+          <Setter TargetName="Badge" Property="Background" Value="#32171D" />
+          <Setter TargetName="BadgeText" Property="Foreground" Value="#FF7181" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="27,0,20,24">
+    <StackPanel>
+      <UniformGrid Columns="4" Margin="0,0,0,14">
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel><TextBlock Text="CPU" Foreground="#A991BC" FontSize="9" FontWeight="Bold"/><TextBlock x:Name="CpuTemperatureText" Text="— °C" FontSize="22" FontWeight="Bold" Margin="0,5,0,0"/><TextBlock x:Name="CpuDetailText" Text="Ожидание датчиков" Foreground="#817888" FontSize="9" TextTrimming="CharacterEllipsis"/></StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel><TextBlock Text="GPU" Foreground="#A991BC" FontSize="9" FontWeight="Bold"/><TextBlock x:Name="GpuTemperatureText" Text="— °C" FontSize="22" FontWeight="Bold" Margin="0,5,0,0"/><TextBlock x:Name="GpuDetailText" Text="Ожидание датчиков" Foreground="#817888" FontSize="9" TextTrimming="CharacterEllipsis"/></StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel><TextBlock Text="ЧАСТОТА GPU" Foreground="#A991BC" FontSize="9" FontWeight="Bold"/><TextBlock x:Name="GpuClockText" Text="— MHz" FontSize="22" FontWeight="Bold" Margin="0,5,0,0"/><TextBlock x:Name="GpuPowerText" Text="мощность —" Foreground="#817888" FontSize="9"/></StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0">
+          <StackPanel><TextBlock Text="VRAM" Foreground="#A991BC" FontSize="9" FontWeight="Bold"/><TextBlock x:Name="VramText" Text="— / — MB" FontSize="22" FontWeight="Bold" Margin="0,5,0,0"/><TextBlock Text="данные LibreHardwareMonitor" Foreground="#817888" FontSize="9"/></StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Border Style="{StaticResource CardStyle}" Padding="20">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="18"/><ColumnDefinition/></Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="BENCHMARK LAB" FontSize="10" FontWeight="Bold" Foreground="#C493ED" />
+            <TextBlock Text="Честный замер FPS и фреймтайма через PresentMon" FontSize="18" FontWeight="Bold" Margin="0,5,0,0" />
+            <TextBlock Text="Запусти игру, выбери её процесс и проведи сцену одинаково. AURA не внедряется в процесс игры." Foreground="#91869B" FontSize="10" TextWrapping="Wrap" Margin="0,5,0,15" />
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+              <Grid>
+                <TextBox x:Name="ProcessSearchBox"
+                         MinHeight="40"
+                         Padding="34,8,12,8"
+                         VerticalContentAlignment="Center"
+                         ToolTip="Поиск по любой части имени процесса, например Rus"
+                         TextChanged="ProcessSearchBox_TextChanged" />
+                <TextBlock Text="&#xE721;"
+                           FontFamily="Segoe MDL2 Assets"
+                           Foreground="#A77BD0"
+                           FontSize="14"
+                           Margin="12,0,0,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False" />
+                <TextBlock x:Name="ProcessSearchHint"
+                           Text="Поиск процесса · например, Rus"
+                           Foreground="#716879"
+                           FontSize="10"
+                           Margin="34,0,12,0"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False" />
+              </Grid>
+              <Border Grid.Column="2" Background="#17151D" BorderBrush="#342F3B" BorderThickness="1" CornerRadius="10" Padding="8,0">
+                <TextBlock x:Name="ProcessSearchCountText" Text="0 процессов" Foreground="#9587A1" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+              <ComboBox x:Name="ProcessCombo" />
+              <ComboBox x:Name="DurationCombo" Grid.Column="2" SelectedIndex="1">
+                <ComboBoxItem Content="15 сек" Tag="15"/><ComboBoxItem Content="30 сек" Tag="30"/><ComboBoxItem Content="60 сек" Tag="60"/>
+              </ComboBox>
+            </Grid>
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+              <Button x:Name="StartBenchmarkButton" Style="{StaticResource PrimaryButton}" Content="▶  Начать замер" Padding="18,9" Click="StartBenchmark_Click" />
+              <Button x:Name="CancelBenchmarkButton" Style="{StaticResource SecondaryButton}" Content="Отмена" Padding="15,9" Margin="8,0,0,0" IsEnabled="False" Click="CancelBenchmark_Click" />
+              <Button Style="{StaticResource SecondaryButton}" Content="↻" Width="42" Margin="8,0,0,0" ToolTip="Обновить список процессов" Click="RefreshProcesses_Click" />
+            </StackPanel>
+            <ProgressBar x:Name="BenchmarkProgress" Height="4" Minimum="0" Maximum="100" Margin="0,13,0,0" />
+            <TextBlock x:Name="BenchmarkStatusText" Text="Готово к тесту" Foreground="#8E8498" FontSize="9" Margin="0,6,0,0" />
+          </StackPanel>
+
+          <Border Grid.Column="2" Background="#0D0C12" BorderBrush="#362E3F" BorderThickness="1" CornerRadius="15" Padding="17">
+            <Grid>
+              <StackPanel x:Name="BenchmarkEmptyPanel" VerticalAlignment="Center">
+                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="28" Foreground="#7441A4" HorizontalAlignment="Center" />
+                <TextBlock Text="Результат появится здесь" Foreground="#756D7D" FontSize="10" HorizontalAlignment="Center" Margin="0,8,0,0" />
+              </StackPanel>
+              <StackPanel x:Name="BenchmarkResultPanel" Visibility="Collapsed">
+                <TextBlock x:Name="BenchmarkProcessText" Text="cs2.exe" Foreground="#B79BCF" FontSize="10" FontWeight="Bold" />
+                <UniformGrid Columns="2" Margin="0,13,0,0">
+                  <StackPanel Margin="0,0,8,12"><TextBlock Text="СРЕДНИЙ FPS" Foreground="#7E7587" FontSize="8"/><TextBlock x:Name="AverageFpsText" Text="0" FontSize="25" FontWeight="Bold"/></StackPanel>
+                  <StackPanel Margin="8,0,0,12"><TextBlock Text="1% LOW" Foreground="#7E7587" FontSize="8"/><TextBlock x:Name="LowFpsText" Text="0" FontSize="25" FontWeight="Bold"/></StackPanel>
+                  <StackPanel Margin="0,0,8,0"><TextBlock Text="P95" Foreground="#7E7587" FontSize="8"/><TextBlock x:Name="P95Text" Text="0 ms" FontSize="17" FontWeight="SemiBold"/></StackPanel>
+                  <StackPanel Margin="8,0,0,0"><TextBlock Text="СКАЧКИ" Foreground="#7E7587" FontSize="8"/><TextBlock x:Name="StutterCountText" Text="0" FontSize="17" FontWeight="SemiBold"/></StackPanel>
+                </UniformGrid>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <Border Style="{StaticResource CardStyle}" Margin="0" Padding="18">
+          <StackPanel>
+            <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="SMART AUDIT" FontSize="10" FontWeight="Bold" Foreground="#C493ED"/><TextBlock Text="Проверка готовности системы" FontSize="16" FontWeight="Bold" Margin="0,4,0,0"/></StackPanel><Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Проверить" Padding="14,7" Click="RunAudit_Click"/></Grid>
+            <ItemsControl x:Name="AuditItems" ItemTemplate="{StaticResource AuditTemplate}" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="0" Padding="18">
+          <StackPanel>
+            <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="STUTTER DOCTOR" FontSize="10" FontWeight="Bold" Foreground="#C493ED"/><TextBlock Text="TDR, WHEA и ошибки диска" FontSize="16" FontWeight="Bold" Margin="0,4,0,0"/></StackPanel><Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Сканировать" Padding="14,7" Click="RunStutterScan_Click"/></Grid>
+            <ItemsControl x:Name="StutterItems" ItemTemplate="{StaticResource AuditTemplate}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

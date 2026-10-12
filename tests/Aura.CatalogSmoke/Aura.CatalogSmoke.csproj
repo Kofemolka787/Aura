@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../ColorForge.Models/WindowsTweakPreferences.cs" Link="WindowsTweakPreferences.cs" />
+    <Compile Include="../../ColorForge.Services/WindowsTweakCatalog.cs" Link="WindowsTweakCatalog.cs" />
+    <Compile Include="../../ColorForge.Services/WindowsTweaksService.cs" Link="WindowsTweaksService.cs" />
+  </ItemGroup>
+</Project>
