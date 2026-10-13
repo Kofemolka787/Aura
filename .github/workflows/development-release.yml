@@ -33,7 +33,7 @@ jobs:
             Get-ChildItem "$env:RUNNER_TEMP/aura-release.stage-*/TestResults/*.trx" -ErrorAction SilentlyContinue | ForEach-Object {
               [xml]$results = Get-Content $_.FullName -Raw
               $results.TestRun.Results.UnitTestResult | Where-Object outcome -eq 'Failed' | ForEach-Object {
-                $message = "$($_.testName): $($_.Output.ErrorInfo.Message)"
+                $message = "$($_.testName): $($_.Output.ErrorInfo.Message)`n$($_.Output.ErrorInfo.StackTrace)"
                 $message = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
                 Write-Output "::error::$message"
               }
