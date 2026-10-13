@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel;
+using System.IO;
+using System.Security.Cryptography;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +24,13 @@ public sealed class PawnIoInstallerService
             return new PawnIoInstallResult(true, false, BundledVersion);
 
         string installer = EmbeddedToolExtractor.Extract("PawnIO_setup.exe", "PawnIO_setup.exe", InstallerHash);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Hold a read-only handle denying write/delete across hash verification, trust validation and UAC execution.
+        using FileStream locked = new(installer, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (!Convert.ToHexString(SHA256.HashData(locked)).Equals(InstallerHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Установщик был изменён до проверки.");
+        locked.Position = 0;
+        AuthenticodeTrust.Verify(installer, locked);
         ProcessStartInfo info = new ProcessStartInfo
         {
             FileName = installer,
@@ -33,7 +42,7 @@ public sealed class PawnIoInstallerService
         {
             using Process process = Process.Start(info)
                 ?? throw new InvalidOperationException("Не удалось запустить официальный установщик PawnIO.");
-            await process.WaitForExitAsync(cancellationToken);
+            await process.WaitForExitAsync(CancellationToken.None);
             bool rebootRequired = process.ExitCode == 3010;
             if (process.ExitCode != 0 && !rebootRequired)
                 throw new InvalidOperationException($"Установщик PawnIO вернул код {process.ExitCode}.");

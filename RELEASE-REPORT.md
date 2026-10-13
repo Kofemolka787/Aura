@@ -1,32 +1,28 @@
-# AURA v0.10 — automated release report
+# AURA v0.11 — current development release evidence
 
-Date: 2026-09-20
+Generated from `release-v0.11-current/release-report.json` for the executable built on 2026-10-13T06:06:04.4459122Z. This replaces the historical v0.10 report.
 
-## Passed
+- SDK: 8.0.425; Windows x64 PE verified.
+- EXE: 210,060,824 bytes; standalone ReadyToRun single file.
+- SHA-256: `7cd73067d5295d7129351ef89070d939e802dccafa00079125cd620aae09ed72`.
+- Authentication: Prototype.
+- Signature: Unsigned development build.
 
-- Release build: 0 errors, 0 warnings.
-- Windows tweak catalog: 82 definitions; 47 Safe, 28 Caution, 7 Danger.
-- Performance presets: Low 25, Medium 41, Ultra 61; zero Danger entries in any preset.
-- Tweak validation: unknown IDs rejected; Fast Startup / Disable Hibernation conflict detected.
-- Restore generation: registry/service/task snapshots restored without recreating deleted backup files.
-- XAML: 98 event bindings resolved to code-behind handlers.
-- Navigation: eight visible sections; Monitor Pro, duplicate Profiles, phone control and hidden Resolution page absent.
-- Single-file publish: Windows x64 GUI executable with embedded PawnIO setup, RyzenSMU, IntelMSR and PresentMon resources.
+- Aura.AuthTests: 8/8 passed; skipped 0.
+- Aura.RegressionTests: 39/39 passed; skipped 0.
+- PowerShell: 12 fixture checks; no native writes.
+- Catalog: 82 definitions; risks 47 Safe / 28 Caution / 7 Danger; presets 25/41/61; no Danger in presets.
+- Cached-sensor fixtures use the pinned LHM managed Sensor implementation on Linux without opening hardware; they prove stale cache invalidation, not native driver behavior.
+- Current build: zero warnings/errors. Locked dependency restore succeeded. NuGet vulnerability audit checked six projects with no known vulnerable packages reported by the current source.
+- Local ASP.NET host started and returned the expected health protocol; invalid login was rejected. Real ASP.NET HTTP pipeline and matching client exercised by the authentication test suite.
+- Versioned copyleft source archive hashes verified; 48 runtime NuGet packages inventoried. Licensing files are packaged separately from the EXE.
 
-## Embedded component hashes
+## Unperformed and blocked checks
 
-| Component | SHA-256 |
-|---|---|
-| PawnIO setup 2.2.0 | `1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032` |
-| RyzenSMU 0.2.11 | `301d9ca397108e09f31bfbd5ac4c9bb4f352a5de68532c32db3ba7ddcde93450` |
-| IntelMSR 0.2.11 | `d6ed85d65ab17a22f813ef98207d6d537155ee2ded5976a21cb48413c9b92e5f` |
-| PresentMon 2.5.1 | `9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191` |
+Native WPF behavior, UAC, DPAPI on Windows, registry/services/tasks/power/BCD, driver installation/trust, NVAPI/Direct3D, physical CPU/GPU/monitor writes, hardware stability and mixed DPI were not run in this Linux environment. Windows CI is configured but its remote run is not part of this local evidence. Follow `RELEASE-CHECKLIST.md` before distribution.
 
-## Release artifact
+Docker build was blocked by cloud network policy at Microsoft's registry CDN; no container run is claimed. The ordinary local backend works. Commercial domain/hosting and Authenticode certificate were not supplied, so no public deployment or EXE signing occurred.
 
-- `Aura.exe`: 209,651,224 bytes.
-- SHA-256: `4cf19028f99103c4b3474d3d4d4bf015c238f468922c0e8375a648701a6e83d7`.
+AMD PBO writes, four AppX removals without trusted MSIX recovery sources, and disabling hibernation without exact type/size recovery are explicitly unavailable. They are not counted as passed hardware/Windows tests.
 
-## Still requires physical Windows QA
-
-WPF compilation and pure-code smoke tests cannot exercise real monitor gamma/scaling, NVAPI overclocking, PawnIO driver installation, CPU firmware locks, UAC, UEFI restart or Windows registry/service changes from the Linux builder. Follow `RELEASE-CHECKLIST.md` on test Windows PCs before public sale.
+The archived v0.10 tweak journal is preserved and flagged; it is not automatically trusted or executed. v0.11 can restore the values it records before its own changes.

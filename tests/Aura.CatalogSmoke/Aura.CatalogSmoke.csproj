@@ -7,6 +7,10 @@
     <LangVersion>12.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../Assets/Runtime/WindowsTweaks.ps1" Link="Runtime/WindowsTweaks.ps1" />
+    <Compile Include="../../ColorForge.Models/TweakRunReport.cs" />
+    <Compile Include="../../ColorForge.Services/AtomicFile.cs" />
+    <Compile Include="../../ColorForge.Services/AppLogService.cs" />
     <Compile Include="../../ColorForge.Models/WindowsTweakPreferences.cs" Link="WindowsTweakPreferences.cs" />
     <Compile Include="../../ColorForge.Services/WindowsTweakCatalog.cs" Link="WindowsTweakCatalog.cs" />
     <Compile Include="../../ColorForge.Services/WindowsTweaksService.cs" Link="WindowsTweaksService.cs" />

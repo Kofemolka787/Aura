@@ -22,7 +22,7 @@ public partial class BiosPage : UserControl
 
         try
         {
-            Process.Start(new ProcessStartInfo("shutdown.exe", "/r /fw /t 0")
+            Process.Start(new ProcessStartInfo(System.IO.Path.Combine(Environment.SystemDirectory, "shutdown.exe"), "/r /fw /t 0")
             {
                 UseShellExecute = true,
                 Verb = "runas"

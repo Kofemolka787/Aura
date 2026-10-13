@@ -4,15 +4,20 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ColorForge.Models;
 
 namespace ColorForge.Services;
 
-public sealed record WindowsTweaksResult(bool Success, int ExitCode, string Message, bool RestartRecommended);
-
+public sealed record WindowsTweaksResult(bool Success, int ExitCode, string Message, bool RestartRecommended)
+{
+    public TweakRunReport? Report { get; init; }
+}
 public sealed record WindowsTweaksAudit(int DefinitionCount, int SafeCount, int CautionCount, int DangerCount, IReadOnlyList<string> Errors)
 {
     public bool Success => Errors.Count == 0;
@@ -20,7 +25,43 @@ public sealed record WindowsTweaksAudit(int DefinitionCount, int SafeCount, int 
 
 public sealed class WindowsTweaksService
 {
+    private static readonly HashSet<string> UnrestorableAppRemoval = new(StringComparer.OrdinalIgnoreCase)
+    { "remove_consumer_apps", "remove_xbox_components", "remove_widgets", "remove_microsoft_store" };
     public IReadOnlyList<WindowsTweakDefinition> Catalog => WindowsTweakCatalog.All;
+    public static bool HasVerifiedRestore(string id) => id != "disable_hibernation" && !UnrestorableAppRemoval.Contains(id);
+    public IReadOnlyList<TweakRunReport> LoadHistory()
+    {
+        if (!OperatingSystem.IsWindows()) return Array.Empty<TweakRunReport>();
+        string? sid = WindowsIdentity.GetCurrent().User?.Value;
+        if (sid == null) return Array.Empty<TweakRunReport>();
+        string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AURA", "TweaksV2", sid);
+        if (!Directory.Exists(root)) return Array.Empty<TweakRunReport>();
+        List<TweakRunReport> reports = new();
+        try
+        {
+            foreach (string path in Directory.GetFiles(root, "*.json").OrderByDescending(File.GetLastWriteTimeUtc).Take(30))
+            {
+                if (new FileInfo(path).Length > 4 * 1024 * 1024) continue;
+                var report = JsonSerializer.Deserialize<TweakRunReport>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (report != null) reports.Add(report);
+            }
+        }
+        catch (Exception exception) { AppLogService.Error("Could not load tweak history.", exception); }
+        return reports;
+    }
+
+    public bool HasLegacyState()
+    {
+        string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AURA", "Tweaks");
+        return new[] { "registry.clixml", "services.clixml", "tasks.clixml" }.Any(x => File.Exists(Path.Combine(root, x)));
+    }
+
+    public bool HasPendingState()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        string? sid = WindowsIdentity.GetCurrent().User?.Value;
+        return sid != null && File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AURA", "TweaksV2", sid, "history.clixml"));
+    }
 
     public static WindowsTweaksAudit AuditCatalog()
     {
@@ -83,6 +124,7 @@ public sealed class WindowsTweaksService
         HashSet<string> selected = new(ids ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         HashSet<string> known = new(Catalog.Select(item => item.Id), StringComparer.OrdinalIgnoreCase);
         List<string> errors = selected.Where(id => !known.Contains(id)).Select(id => $"Неизвестный твик: {id}").ToList();
+        errors.AddRange(selected.Where(UnrestorableAppRemoval.Contains).Select(id => id + ": нужен проверенный источник MSIX для точного восстановления. Удаление недоступно."));
 
         if (selected.Contains("fast_startup") && selected.Contains("disable_hibernation"))
             errors.Add("«Быстрый запуск» и «Отключить гибернацию» несовместимы. Оставь один из двух пунктов.");
@@ -90,305 +132,88 @@ public sealed class WindowsTweaksService
         return errors;
     }
 
-    public Task<WindowsTweaksResult> ApplyAsync(WindowsTweakPreferences options, CancellationToken cancellationToken = default)
-    {
-        string[] selectedIds = (options.EnabledTweakIds ?? new List<string>())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        IReadOnlyList<string> errors = ValidateSelection(selectedIds);
-        if (errors.Count > 0)
-            return Task.FromResult(new WindowsTweaksResult(false, -1, string.Join(Environment.NewLine, errors), false));
-        if (selectedIds.Length == 0)
-            return Task.FromResult(new WindowsTweaksResult(false, -1, "Не выбран ни один твик.", false));
 
-        IReadOnlyList<WindowsTweakDefinition> selected = Catalog
-            .Where(item => selectedIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
-            .ToArray();
-        return RunElevatedAsync(BuildApplyScript(selected), $"Применено твиков: {selected.Count}", true, cancellationToken);
+    public Task<WindowsTweaksResult> ApplyAsync(WindowsTweakPreferences options, CancellationToken token = default)
+    {
+        string[] ids = (options.EnabledTweakIds ?? new()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        List<string> errors = ValidateSelection(ids).ToList();
+        if (errors.Count > 0 || ids.Length == 0)
+            return Task.FromResult(new WindowsTweaksResult(false, -1, errors.Count > 0 ? string.Join(Environment.NewLine, errors) : "Не выбран ни один твик.", false));
+        return RunElevatedAsync(BuildApplyScript(Catalog.Where(x => ids.Contains(x.Id, StringComparer.OrdinalIgnoreCase)).ToArray()), token);
     }
 
-    public Task<WindowsTweaksResult> RestoreDefaultsAsync(CancellationToken cancellationToken = default) =>
-        RunElevatedAsync(BuildRestoreScript(), "Сохранённые исходные параметры восстановлены", true, cancellationToken);
+    public Task<WindowsTweaksResult> RestoreDefaultsAsync(CancellationToken token = default) =>
+        RunElevatedAsync(BuildRestoreScript(), token);
+
+    private static string Runtime()
+    {
+        var assembly = typeof(WindowsTweaksService).Assembly;
+        string name = assembly.GetManifestResourceNames().Single(x => x.EndsWith("Runtime.WindowsTweaks.ps1", StringComparison.Ordinal));
+        using Stream stream = assembly.GetManifestResourceStream(name)!;
+        using StreamReader reader = new(stream, Encoding.UTF8, true);
+        return reader.ReadToEnd();
+    }
 
     internal static string BuildApplyScript(IReadOnlyList<WindowsTweakDefinition> selected)
     {
-        StringBuilder script = new();
-        script.AppendLine(CommonPreamble);
-        script.AppendLine("Write-Step 'Создание точки восстановления'");
-        script.AppendLine("try { Enable-ComputerRestore -Drive \"$($env:SystemDrive)\\\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description 'AURA before Windows tweaks' -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop; Write-Output 'Точка восстановления создана.' } catch { Write-Output ('Точка восстановления недоступна: ' + $_.Exception.Message) }");
-
-        foreach (WindowsTweakDefinition item in selected)
+        StringBuilder script = new(Runtime());
+        script.AppendLine("\n$AuraSelections = @(");
+        foreach (WindowsTweakDefinition definition in selected)
         {
-            script.AppendLine("try {");
-            script.AppendLine($"  Write-Step '{EscapePowerShell(item.Title)}'");
-            if (item.RequiresWindows11)
-            {
-                script.AppendLine("  if ([Environment]::OSVersion.Version.Build -lt 22000) { Write-Output 'Пропущено: требуется Windows 11.' } else {");
-                script.AppendLine(Indent(item.ApplyScript, 4));
-                script.AppendLine("  }");
-            }
-            else
-            {
-                script.AppendLine(Indent(item.ApplyScript, 2));
-            }
-            script.AppendLine($"}} catch {{ Add-AuraError '{EscapePowerShell(item.Title)}' $_.Exception.Message }}");
+            script.AppendLine("[pscustomobject]@{ Id='" + Quote(definition.Id) + "'; Title='" + Quote(definition.Title)
+                + "'; RequiresWindows11=$" + (definition.RequiresWindows11 ? "true" : "false") + "; Script={");
+            script.AppendLine(definition.ApplyScript);
+            script.AppendLine("} }");
         }
-
-        script.AppendLine(CommonPostamble);
+        script.AppendLine(")\nInvoke-AuraApply $AuraSelections");
         return script.ToString();
     }
 
-    internal static string BuildRestoreScript()
-    {
-        StringBuilder script = new();
-        script.AppendLine(CommonPreamble);
-        script.AppendLine("Write-Step 'Откат команд без реестрового снимка'");
-        foreach (WindowsTweakDefinition item in WindowsTweakCatalog.All.Where(item => !string.IsNullOrWhiteSpace(item.RestoreScript)))
-        {
-            script.AppendLine("try {");
-            script.AppendLine(Indent(item.RestoreScript, 2));
-            script.AppendLine($"}} catch {{ Add-AuraError 'Откат: {EscapePowerShell(item.Title)}' $_.Exception.Message }}");
-        }
-        script.AppendLine("try { Restore-BuiltInApps } catch { Add-AuraError 'Встроенные приложения' $_.Exception.Message }");
-        script.AppendLine("try { Restore-AuraBackups } catch { Add-AuraError 'Снимок исходных параметров' $_.Exception.Message }");
-        script.AppendLine("if ($AuraErrors.Count -eq 0) { Clear-AuraBackups; $AuraSkipBackupSave = $true }");
-        script.AppendLine(CommonPostamble);
-        return script.ToString();
-    }
+    internal static string BuildRestoreScript() => Runtime() + "\nInvoke-AuraRestore\n";
+    private static string Quote(string value) => value.Replace("'", "''", StringComparison.Ordinal);
 
-    private static async Task<WindowsTweaksResult> RunElevatedAsync(
-        string script,
-        string successMessage,
-        bool restartRecommended,
-        CancellationToken cancellationToken)
+    private static async Task<WindowsTweaksResult> RunElevatedAsync(string script, CancellationToken token)
     {
-        string scriptDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AURA",
-            "Runtime");
-        Directory.CreateDirectory(scriptDirectory);
-        string scriptPath = Path.Combine(scriptDirectory, $"tweaks-{Guid.NewGuid():N}.ps1");
-        await File.WriteAllTextAsync(scriptPath, script, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), cancellationToken);
-        ProcessStartInfo startInfo = new()
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Применение твиков доступно только в Windows.");
+        token.ThrowIfCancellationRequested();
+        string sid = WindowsIdentity.GetCurrent().User?.Value ?? throw new InvalidOperationException("Не удалось определить пользователя Windows.");
+        string runId = Guid.NewGuid().ToString("N");
+        string directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AURA", "Runtime");
+        string scriptPath = Path.Combine(directory, "tweaks-" + runId + ".ps1");
+        byte[] bytes = new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(script)).ToArray();
+        AtomicFile.Write(scriptPath, bytes);
+        string hash = Convert.ToHexString(SHA256.HashData(bytes));
+        // Read once, verify those exact bytes, and execute the verified in-memory text.
+        // The elevated process never reopens the script after verification.
+        string systemModules = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "Modules");
+        string bootstrap = "$ErrorActionPreference='Stop'; $env:PSModulePath='" + Quote(systemModules) + "'; try { $b=[IO.File]::ReadAllBytes('" + Quote(scriptPath)
+            + "'); $h=[Security.Cryptography.SHA256]::Create(); try { $actual=([BitConverter]::ToString($h.ComputeHash($b))).Replace('-','') } finally { $h.Dispose() }; "
+            + "if($actual -ne '" + hash + "') { throw 'Проверка скрипта AURA не пройдена' }; "
+            + "$s=[Text.Encoding]::UTF8.GetString($b).TrimStart([char]0xFEFF); & ([scriptblock]::Create($s)) -TargetSid '" + sid + "' -RunId '" + runId
+            + "' } catch { Write-Error $_; exit 2 }";
+        string resultPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AURA", "TweaksV2", sid, runId + ".json");
+        ProcessStartInfo start = new()
         {
-            FileName = "powershell.exe",
-            Arguments = $"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{scriptPath}\"",
-            UseShellExecute = true,
-            Verb = "runas",
-            WindowStyle = ProcessWindowStyle.Hidden
+            FileName = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"),
+            Arguments = "-NoLogo -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(bootstrap)),
+            UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden
         };
-
         try
         {
-            using Process process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("Не удалось запустить PowerShell.");
-            await process.WaitForExitAsync(cancellationToken);
-            return process.ExitCode == 0
-                ? new WindowsTweaksResult(true, 0, successMessage, restartRecommended)
-                : new WindowsTweaksResult(false, process.ExitCode, "Некоторые операции не выполнены. Подробности: %TEMP%\\AURA-tweaks-last.log", false);
+            using Process process = Process.Start(start) ?? throw new InvalidOperationException("PowerShell не запущен.");
+            // Once system writes begin, let the protected journal finish instead of killing the child.
+            await process.WaitForExitAsync(CancellationToken.None);
+            if (!File.Exists(resultPath)) return new(false, process.ExitCode, "Нет подтверждённого отчёта операции. Сохранённые снимки не удалены; проверь журнал Windows.", false);
+            TweakRunReport report = JsonSerializer.Deserialize<TweakRunReport>(await File.ReadAllTextAsync(resultPath),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Отчёт операции повреждён.");
+            bool success = process.ExitCode == 0 && report.Success;
+            string message = success
+                ? $"Операция завершена. Применено: {report.Actions.Count(x => x.Status == "Applied")}, восстановлено: {report.Actions.Count(x => x.Status == "Restored")}, пропущено: {report.Actions.Count(x => x.Status == "Skipped")}. Точка восстановления: {report.RestorePoint}."
+                : "Операция выполнена частично: " + string.Join("; ", report.Errors);
+            return new(success, process.ExitCode, message + " Журнал: " + report.LogPath, report.Remaining > 0) { Report = report };
         }
         catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
-        {
-            return new WindowsTweaksResult(false, 1223, "Запрос прав администратора отменён.", false);
-        }
-        finally
-        {
-            try { File.Delete(scriptPath); } catch { }
-        }
+        { return new(false, 1223, "Повышение прав отменено; изменения не запускались.", false); }
+        finally { try { File.Delete(scriptPath); } catch (Exception exception) { AppLogService.Error("Could not clean up verified tweak script.", exception); } }
     }
-
-    private static string EscapePowerShell(string value) => value.Replace("'", "''", StringComparison.Ordinal);
-
-    private static string Indent(string value, int spaces)
-    {
-        string prefix = new(' ', spaces);
-        return string.Join(Environment.NewLine, value.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select(line => prefix + line));
-    }
-
-    private const string CommonPreamble = """
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-$LogPath = Join-Path $env:TEMP 'AURA-tweaks-last.log'
-$AuraRoot = Join-Path $env:ProgramData 'AURA\Tweaks'
-$RegistryBackupPath = Join-Path $AuraRoot 'registry.clixml'
-$ServiceBackupPath = Join-Path $AuraRoot 'services.clixml'
-$TaskBackupPath = Join-Path $AuraRoot 'tasks.clixml'
-New-Item -Path $AuraRoot -ItemType Directory -Force | Out-Null
-try { Start-Transcript -Path $LogPath -Force | Out-Null } catch {}
-
-$AuraErrors = [System.Collections.Generic.List[string]]::new()
-$AuraSkipBackupSave = $false
-$AuraRegistryBackup = if (Test-Path $RegistryBackupPath) { @(Import-Clixml $RegistryBackupPath) } else { @() }
-$AuraServiceBackup = if (Test-Path $ServiceBackupPath) { @(Import-Clixml $ServiceBackupPath) } else { @() }
-$AuraTaskBackup = if (Test-Path $TaskBackupPath) { @(Import-Clixml $TaskBackupPath) } else { @() }
-
-function Write-Step([string]$Name) {
-  Write-Output ''
-  Write-Output ('=== ' + $Name + ' ===')
-}
-function Add-AuraError([string]$Name, [string]$Message) {
-  $entry = $Name + ': ' + $Message
-  $AuraErrors.Add($entry)
-  Write-Warning $entry
-}
-function Ensure-Key([string]$Path) {
-  if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-}
-function Backup-RegValue([string]$Path, [string]$Name) {
-  if ($AuraRegistryBackup | Where-Object { $_.Path -ieq $Path -and $_.Name -ieq $Name }) { return }
-  $exists = $false
-  $kind = 'String'
-  $value = $null
-  if (Test-Path $Path) {
-    $key = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
-    if ($null -ne $key -and $key.GetValueNames() -contains $Name) {
-      $exists = $true
-      $kind = $key.GetValueKind($Name).ToString()
-      $value = $key.GetValue($Name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-    }
-  }
-  $script:AuraRegistryBackup += [pscustomobject]@{ Path=$Path; Name=$Name; Exists=$exists; Kind=$kind; Value=$value }
-}
-function Set-DwordBacked([string]$Path, [string]$Name, [uint32]$Value) {
-  Backup-RegValue $Path $Name
-  Ensure-Key $Path
-  New-ItemProperty -LiteralPath $Path -Name $Name -PropertyType DWord -Value $Value -Force | Out-Null
-}
-function Set-StringBacked([string]$Path, [string]$Name, [string]$Value) {
-  Backup-RegValue $Path $Name
-  Ensure-Key $Path
-  if ($Name -eq '') { (Get-Item -LiteralPath $Path).SetValue('', $Value, [Microsoft.Win32.RegistryValueKind]::String) }
-  else { New-ItemProperty -LiteralPath $Path -Name $Name -PropertyType String -Value $Value -Force | Out-Null }
-}
-function Set-BinaryBacked([string]$Path, [string]$Name, [byte[]]$Value) {
-  Backup-RegValue $Path $Name
-  Ensure-Key $Path
-  New-ItemProperty -LiteralPath $Path -Name $Name -PropertyType Binary -Value $Value -Force | Out-Null
-}
-function Remove-RegValueBacked([string]$Path, [string]$Name) {
-  Backup-RegValue $Path $Name
-  if (Test-Path $Path) { Remove-ItemProperty -LiteralPath $Path -Name $Name -ErrorAction SilentlyContinue }
-}
-function Backup-ServiceState([string]$Name) {
-  if ($AuraServiceBackup | Where-Object { $_.Name -ieq $Name }) { return }
-  $service = Get-CimInstance Win32_Service -Filter ("Name='" + $Name.Replace("'", "''") + "'") -ErrorAction SilentlyContinue
-  if ($null -ne $service) {
-    $script:AuraServiceBackup += [pscustomobject]@{ Name=$Name; StartMode=$service.StartMode; State=$service.State }
-  }
-}
-function Disable-ServiceBacked([string]$Name) {
-  $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
-  if ($null -eq $service) { Write-Output ($Name + ': служба не установлена'); return }
-  Backup-ServiceState $Name
-  Stop-Service -Name $Name -Force -ErrorAction SilentlyContinue
-  Set-Service -Name $Name -StartupType Disabled
-}
-function Disable-TaskBacked([string]$Pattern) {
-  $tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { ($_.TaskPath + $_.TaskName) -like $Pattern })
-  foreach ($task in $tasks) {
-    $full = $task.TaskPath + $task.TaskName
-    if (-not ($AuraTaskBackup | Where-Object { ($_.TaskPath + $_.TaskName) -ieq $full })) {
-      $script:AuraTaskBackup += [pscustomobject]@{ TaskPath=$task.TaskPath; TaskName=$task.TaskName; Enabled=([string]$task.State -ne 'Disabled') }
-    }
-    Disable-ScheduledTask -TaskPath $task.TaskPath -TaskName $task.TaskName -ErrorAction SilentlyContinue | Out-Null
-  }
-}
-function Save-AuraBackups {
-  @($AuraRegistryBackup) | Export-Clixml -Path $RegistryBackupPath -Force
-  @($AuraServiceBackup) | Export-Clixml -Path $ServiceBackupPath -Force
-  @($AuraTaskBackup) | Export-Clixml -Path $TaskBackupPath -Force
-}
-function Restore-AuraBackups {
-  foreach ($entry in @($AuraRegistryBackup)) {
-    if ($entry.Exists) {
-      Ensure-Key $entry.Path
-      $kind = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], [string]$entry.Kind)
-      (Get-Item -LiteralPath $entry.Path).SetValue([string]$entry.Name, $entry.Value, $kind)
-    } elseif (Test-Path $entry.Path) {
-      try { (Get-Item -LiteralPath $entry.Path).DeleteValue([string]$entry.Name, $false) } catch {}
-    }
-  }
-  foreach ($entry in @($AuraServiceBackup)) {
-    $startup = switch ([string]$entry.StartMode) { 'Auto' { 'Automatic' } 'Disabled' { 'Disabled' } default { 'Manual' } }
-    Set-Service -Name $entry.Name -StartupType $startup -ErrorAction SilentlyContinue
-    if ($entry.State -eq 'Running') { Start-Service -Name $entry.Name -ErrorAction SilentlyContinue }
-    else { Stop-Service -Name $entry.Name -Force -ErrorAction SilentlyContinue }
-  }
-  foreach ($entry in @($AuraTaskBackup)) {
-    if ($entry.Enabled) { Enable-ScheduledTask -TaskPath $entry.TaskPath -TaskName $entry.TaskName -ErrorAction SilentlyContinue | Out-Null }
-    else { Disable-ScheduledTask -TaskPath $entry.TaskPath -TaskName $entry.TaskName -ErrorAction SilentlyContinue | Out-Null }
-  }
-}
-function Clear-AuraBackups {
-  Remove-Item -LiteralPath $RegistryBackupPath,$ServiceBackupPath,$TaskBackupPath -Force -ErrorAction SilentlyContinue
-}
-function Remove-AppList([string[]]$Names) {
-  foreach ($name in $Names) {
-    Get-AppxPackage -Name $name -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
-  }
-}
-function Restore-BuiltInApps {
-  Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | ForEach-Object {
-    $manifest = Join-Path $_.InstallLocation 'AppXManifest.xml'
-    if (Test-Path $manifest) { Add-AppxPackage -DisableDevelopmentMode -Register $manifest -ErrorAction SilentlyContinue }
-  }
-}
-function Enable-HighPerformancePlan {
-  powercfg.exe /setactive SCHEME_MIN | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    $duplicate = powercfg.exe /duplicatescheme SCHEME_MIN
-    if ($duplicate -match '([0-9a-fA-F-]{36})') { powercfg.exe /setactive $Matches[1] | Out-Null }
-  }
-}
-function Enable-ClassicContextMenu {
-  $path = 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32'
-  Set-StringBacked $path '' ''
-}
-function Disable-ClassicContextMenu {
-  Remove-Item -LiteralPath 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}' -Recurse -Force -ErrorAction SilentlyContinue
-}
-function Set-AutoHdrToken([bool]$Enabled) {
-  $path = 'HKCU:\Software\Microsoft\DirectX\UserGpuPreferences'
-  $name = 'DirectXUserGlobalSettings'
-  $current = if (Test-Path $path) { [string](Get-ItemProperty -LiteralPath $path -Name $name -ErrorAction SilentlyContinue).$name } else { '' }
-  $tokens = @($current.Split(';', [System.StringSplitOptions]::RemoveEmptyEntries) | Where-Object { $_ -notlike 'AutoHDREnable=*' })
-  $tokens += ('AutoHDREnable=' + $(if ($Enabled) { '1' } else { '0' }))
-  Set-StringBacked $path $name (($tokens -join ';') + ';')
-}
-function Enable-GpuMsiMode {
-  $devices = @(Get-PnpDevice -Class Display -Status OK -ErrorAction SilentlyContinue)
-  if ($devices.Count -eq 0) { throw 'Не найдена активная видеокарта PnP.' }
-  foreach ($device in $devices) {
-    $path = 'HKLM:\SYSTEM\CurrentControlSet\Enum\' + $device.InstanceId + '\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties'
-    Set-DwordBacked $path 'MSISupported' 1
-  }
-}
-function Disable-UsbDevicePowerSaving {
-  $devices = @(Get-PnpDevice -Class USB -Status OK -ErrorAction SilentlyContinue)
-  foreach ($device in $devices) {
-    $path = 'HKLM:\SYSTEM\CurrentControlSet\Enum\' + $device.InstanceId + '\Device Parameters'
-    $old = [uint32]0
-    if (Test-Path $path) { $old = [uint32]((Get-ItemProperty -LiteralPath $path -Name 'PnPCapabilities' -ErrorAction SilentlyContinue).PnPCapabilities) }
-    Set-DwordBacked $path 'PnPCapabilities' ($old -bor 24)
-  }
-}
-
-""";
-
-    private const string CommonPostamble = """
-
-if (-not $AuraSkipBackupSave) {
-  try { Save-AuraBackups } catch { Add-AuraError 'Сохранение отката' $_.Exception.Message }
-}
-Write-Step 'Готово'
-if ($AuraErrors.Count -gt 0) {
-  Write-Output ('Ошибок: ' + $AuraErrors.Count)
-  $AuraErrors | ForEach-Object { Write-Output $_ }
-  try { Stop-Transcript | Out-Null } catch {}
-  exit 2
-}
-Write-Output 'AURA завершила операцию. Для полного эффекта перезагрузи компьютер.'
-try { Stop-Transcript | Out-Null } catch {}
-exit 0
-""";
 }

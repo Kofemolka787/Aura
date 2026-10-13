@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Linq;
 using ColorForge.Models;
 
@@ -12,108 +13,90 @@ namespace ColorForge.Services;
 
 public sealed class StutterDoctorService
 {
-    private static readonly Dictionary<int, (string Title, AuditSeverity Severity, string Detail)> KnownEvents = new()
+    private const int Limit = 5000;
+    private readonly IExternalToolRunner _runner;
+    public StutterDoctorService(IExternalToolRunner? runner = null) => _runner = runner ?? new ExternalToolRunner();
+    private static (string Title, AuditSeverity Severity, string Detail)? Describe(string provider, int id)
     {
-        [4101] = ("Сброс видеодрайвера", AuditSeverity.Critical, "Windows восстановила графический драйвер после зависания."),
-        [17] = ("Исправленная ошибка PCIe", AuditSeverity.Caution, "WHEA зафиксировала аппаратную ошибку шины PCIe."),
-        [18] = ("Аппаратная ошибка WHEA", AuditSeverity.Critical, "Проверь стабильность CPU/GPU и верни разгон к стандартным значениям."),
-        [19] = ("Исправленная ошибка WHEA", AuditSeverity.Caution, "Система исправила аппаратную ошибку; при повторениях проверь стабильность."),
-        [20] = ("Аппаратная ошибка WHEA", AuditSeverity.Critical, "Обнаружена некорректируемая аппаратная ошибка."),
-        [129] = ("Сброс накопителя", AuditSeverity.Critical, "Контроллер накопителя перестал отвечать и был сброшен."),
-        [153] = ("Повтор операции диска", AuditSeverity.Caution, "Windows повторяла операцию ввода-вывода на накопителе."),
-        [41] = ("Неожиданное выключение", AuditSeverity.Caution, "Предыдущая работа Windows завершилась некорректно.")
-    };
-
-    public async Task<IReadOnlyList<AuditItem>> ScanAsync(BenchmarkResult? benchmark, CancellationToken cancellationToken)
-    {
-        List<AuditItem> result = new List<AuditItem>();
-        if (benchmark != null)
-        {
-            AuditSeverity severity = benchmark.P99FrameTimeMs > 50 || benchmark.StutterCount > 10
-                ? AuditSeverity.Caution
-                : AuditSeverity.Good;
-            result.Add(new AuditItem
+        if (provider.Equals("Microsoft-Windows-WHEA-Logger", StringComparison.OrdinalIgnoreCase))
+            return id switch
             {
-                Title = "Последний игровой тест",
-                Detail = $"{benchmark.Summary} · скачков {benchmark.StutterCount}",
-                Severity = severity
-            });
-        }
-
-        IReadOnlyList<EventHit> hits = await ReadEventsAsync(cancellationToken);
-        foreach (IGrouping<int, EventHit> group in hits.GroupBy(x => x.Id).OrderByDescending(x => KnownEvents[x.Key].Severity))
-        {
-            (string title, AuditSeverity severity, string detail) = KnownEvents[group.Key];
-            DateTime newest = group.Max(x => x.TimeUtc).ToLocalTime();
-            result.Add(new AuditItem
+                17 => ("Исправленная ошибка PCIe", AuditSeverity.Caution, "WHEA сообщила об исправленной аппаратной ошибке PCIe."),
+                18 or 20 => ("Аппаратная ошибка WHEA", AuditSeverity.Critical, "Проверь устойчивость CPU/GPU и исходные параметры."),
+                19 => ("Исправленная ошибка WHEA", AuditSeverity.Caution, "Нужна проверка подробностей события и повторений."),
+                _ => null
+            };
+        if (id == 4101 && provider.Equals("Display", StringComparison.OrdinalIgnoreCase))
+            return ("Сброс видеодрайвера", AuditSeverity.Critical, "Windows восстановила графический драйвер.");
+        if (id == 41 && provider.Equals("Microsoft-Windows-Kernel-Power", StringComparison.OrdinalIgnoreCase))
+            return ("Некорректное завершение Windows", AuditSeverity.Caution, "Событие не определяет причину отключения.");
+        if (provider.Equals("disk", StringComparison.OrdinalIgnoreCase) || provider.Equals("storahci", StringComparison.OrdinalIgnoreCase)
+            || provider.Equals("stornvme", StringComparison.OrdinalIgnoreCase) || provider.Equals("storport", StringComparison.OrdinalIgnoreCase))
+            return id switch
             {
-                Title = title,
-                Detail = $"{group.Count()} раз за 7 дней · последнее {newest:dd.MM HH:mm}. {detail}",
-                Severity = severity
-            });
-        }
-
-        if (hits.Count == 0)
-        {
-            result.Add(new AuditItem
-            {
-                Title = "Системный журнал",
-                Detail = "За 7 дней не найдено TDR, WHEA и ошибок накопителя из проверяемого списка.",
-                Severity = AuditSeverity.Good
-            });
-        }
-
-        result.Add(new AuditItem
-        {
-            Title = "Метод проверки",
-            Detail = "AURA читает только системные события Windows и последний тест PresentMon; файлы игр не изменяются.",
-            Severity = AuditSeverity.Info
-        });
-        return result;
+                129 => ("Сброс накопителя", AuditSeverity.Critical, "Контроллер накопителя перестал отвечать."),
+                153 => ("Повтор операции диска", AuditSeverity.Caution, "Проверь накопитель, контроллер и время события."),
+                _ => null
+            };
+        return null;
     }
 
-    private static async Task<IReadOnlyList<EventHit>> ReadEventsAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AuditItem>> ScanAsync(BenchmarkResult? benchmark, CancellationToken token)
     {
-        const string query = "*[System[((EventID=4101 or EventID=17 or EventID=18 or EventID=19 or EventID=20 or EventID=129 or EventID=153 or EventID=41) and TimeCreated[timediff(@SystemTime) <= 604800000])]]";
-        ProcessStartInfo start = new ProcessStartInfo
-        {
-            FileName = "wevtutil.exe",
-            Arguments = $"qe System /q:\"{query}\" /c:80 /rd:true /f:xml",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-
+        List<AuditItem> items = new();
+        if (benchmark != null)
+            items.Add(new() { Title = "Последний игровой тест", Detail = benchmark.Summary + $" · скачков {benchmark.StutterCount}",
+                Severity = benchmark.P99FrameTimeMs > 50 ? AuditSeverity.Caution : AuditSeverity.Info });
+        const string query = "*[System[TimeCreated[timediff(@SystemTime) <= 604800000] and ((Provider[@Name='Microsoft-Windows-WHEA-Logger'] and (EventID=17 or EventID=18 or EventID=19 or EventID=20)) or (Provider[@Name='Display'] and EventID=4101) or (Provider[@Name='Microsoft-Windows-Kernel-Power'] and EventID=41) or ((Provider[@Name='disk'] or Provider[@Name='storahci'] or Provider[@Name='stornvme'] or Provider[@Name='storport']) and (EventID=129 or EventID=153)))]]";
         try
         {
-            using Process process = Process.Start(start)!;
-            string xml = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(xml))
-                return Array.Empty<EventHit>();
-
-            XDocument document = XDocument.Parse("<Events>" + xml + "</Events>");
+            ToolResult result = await _runner.RunAsync(Path.Combine(Environment.SystemDirectory, "wevtutil.exe"),
+                new[] { "qe", "System", "/q:" + query, "/c:" + Limit, "/rd:true", "/f:xml" }, TimeSpan.FromSeconds(30), token).ConfigureAwait(false);
+            if (result.ExitCode != 0) throw new InvalidOperationException("Журнал не прочитан (" + result.ExitCode + "): " + result.Error.Trim());
             XNamespace ns = "http://schemas.microsoft.com/win/2004/08/events/event";
-            return document.Root!.Elements(ns + "Event")
-                .Select(node =>
-                {
-                    XElement? system = node.Element(ns + "System");
-                    int id = int.TryParse(system?.Element(ns + "EventID")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ? parsed : 0;
-                    string? stamp = system?.Element(ns + "TimeCreated")?.Attribute("SystemTime")?.Value;
-                    DateTime time = DateTime.TryParse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime parsedTime)
-                        ? parsedTime
-                        : DateTime.UtcNow;
-                    return new EventHit(id, time);
-                })
-                .Where(x => KnownEvents.ContainsKey(x.Id))
-                .ToArray();
+            string xml = result.Output.Trim().TrimStart('\uFEFF');
+            if (xml.StartsWith("<?xml", StringComparison.Ordinal)) xml = xml[(xml.IndexOf("?>", StringComparison.Ordinal) + 2)..];
+            using XmlReader reader = XmlReader.Create(new StringReader("<Events>" + xml + "</Events>"),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 16 * 1024 * 1024 });
+            XElement[] events = XDocument.Load(reader).Descendants(ns + "Event").ToArray();
+            int recognized = 0;
+            List<AuditItem> recognizedItems = new();
+            foreach (XElement node in events)
+            {
+                XElement? system = node.Element(ns + "System");
+                string provider = system?.Element(ns + "Provider")?.Attribute("Name")?.Value ?? string.Empty;
+                if (!int.TryParse(system?.Element(ns + "EventID")?.Value, out int id)) continue;
+                var description = Describe(provider, id);
+                if (description == null) continue;
+                recognized++;
+                string timestamp = system?.Element(ns + "TimeCreated")?.Attribute("SystemTime")?.Value ?? string.Empty;
+                string when = DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var date)
+                    ? date.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss") : "время не указано";
+                string relation = benchmark != null && date.UtcDateTime >= benchmark.RecordedAt.ToUniversalTime()
+                    && date.UtcDateTime <= benchmark.RecordedAt.ToUniversalTime().AddSeconds(benchmark.DurationSeconds)
+                    ? " · в интервале последнего замера" : string.Empty;
+                recognizedItems.Add(new() { Title = description.Value.Title, Source = provider + " / " + id, TimestampUtc = date,
+                    Detail = when + " · " + provider + " / " + id + relation + ". " + description.Value.Detail,
+                    Severity = description.Value.Severity });
+            }
+            foreach (var group in recognizedItems.GroupBy(x => x.Source))
+            {
+                var first = group.First();
+                items.Add(new() { Title = first.Title, Source = first.Source, TimestampUtc = first.TimestampUtc, Severity = first.Severity,
+                    Occurrences = group.Count(), Detail = $"Повторений: {group.Count()} · последнее: " + first.Detail });
+            }
+            if (recognized == 0)
+                items.Add(new() { Title = "Системный журнал", Detail = "Журнал прочитан: проверяемых событий за 7 дней не найдено.", Severity = AuditSeverity.Good });
+            if (events.Length >= Limit)
+                items.Add(new() { Title = "Ограниченная выборка", Detail = $"Показаны последние {Limit} событий; это не полный итог за 7 дней.", Severity = AuditSeverity.Caution });
         }
-        catch
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception)
         {
-            return Array.Empty<EventHit>();
+            AppLogService.Error("System event analysis failed.", exception);
+            items.Add(new() { Title = "Журнал не проверен", Detail = exception.Message, Severity = AuditSeverity.Caution });
         }
+        items.Add(new() { Title = "Границы диагностики", Detail = "Событие в журнале само по себе не доказывает причину игрового статтера.", Severity = AuditSeverity.Info });
+        return items;
     }
-
-    private sealed record EventHit(int Id, DateTime TimeUtc);
 }

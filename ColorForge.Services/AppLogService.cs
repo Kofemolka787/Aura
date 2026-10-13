@@ -24,8 +24,8 @@ public static class AppLogService
             if (_initialized)
                 return;
 
-            Directory.CreateDirectory(DirectoryPath);
-            RotateIfNeeded();
+            try { Directory.CreateDirectory(DirectoryPath); RotateIfNeeded(); }
+            catch { return; }
             _initialized = true;
         }
 

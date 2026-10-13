@@ -32,6 +32,9 @@
     <Compile Remove="tests/**/*.cs" />
     <EmbeddedResource Remove="tests/**/*" />
     <None Remove="tests/**/*" />
+    <Compile Remove="server/**/*.cs" />
+    <EmbeddedResource Remove="server/**/*" />
+    <None Remove="server/**/*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +44,8 @@
     <Resource Include="Assets/cinema-mode.png" />
     <Resource Include="Assets/rust-scenes.png" />
     <EmbeddedResource Include="Assets/Tools/PresentMon-2.5.1-x64.exe" />
+    <EmbeddedResource Include="Assets/Runtime/WindowsTweaks.ps1" />
+    <EmbeddedResource Include="Assets/Runtime/AuthClient.json" />
     <EmbeddedResource Include="Assets/Tools/PawnIO_setup.exe" />
     <EmbeddedResource Include="Assets/PawnIO/RyzenSMU.bin" />
     <EmbeddedResource Include="Assets/PawnIO/IntelMSR.bin" />

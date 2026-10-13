@@ -126,17 +126,25 @@ public static class DisplayModeService
 			select x).FirstOrDefault();
 	}
 
-	public static bool Apply(string? deviceName, DisplayMode selected, bool stretch = false)
+    public static bool Apply(string? deviceName, DisplayMode selected, bool stretch = false, bool persist = true, int? fixedOutput = null)
 	{
 		DevMode devMode = CreateDevMode();
-		EnumDisplaySettings(deviceName, -1, ref devMode);
+        if (!EnumDisplaySettings(deviceName, -1, ref devMode)) return false;
 		devMode.dmPelsWidth = selected.Width;
 		devMode.dmPelsHeight = selected.Height;
 		devMode.dmDisplayFrequency = selected.RefreshRate;
-		devMode.dmDisplayFixedOutput = (stretch ? 1 : 0);
+        devMode.dmDisplayFixedOutput = fixedOutput ?? (stretch ? 1 : 0);
 		devMode.dmFields = 542638080;
-		return ChangeDisplaySettingsEx(deviceName, ref devMode, IntPtr.Zero, 1, IntPtr.Zero) == 0;
+        return ChangeDisplaySettingsEx(deviceName, ref devMode, IntPtr.Zero, persist ? 1 : 0, IntPtr.Zero) == 0
+            && GetCurrentMode(deviceName) == selected;
 	}
+
+    public static (DisplayMode Mode, int FixedOutput)? Capture(string deviceName)
+    {
+        DevMode mode = CreateDevMode();
+        if (!EnumDisplaySettings(deviceName, -1, ref mode)) return null;
+        return (new DisplayMode(mode.dmPelsWidth, mode.dmPelsHeight, mode.dmDisplayFrequency), mode.dmDisplayFixedOutput);
+    }
 
 	public static bool Apply(DisplayMode selected)
 	{

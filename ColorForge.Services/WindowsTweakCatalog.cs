@@ -29,7 +29,6 @@ public sealed record WindowsTweakDefinition(
     WindowsTweakRisk Risk,
     WindowsTweakProfile Profiles,
     string ApplyScript,
-    string RestoreScript = "",
     bool RequiresWindows11 = false);
 
 public static class WindowsTweakCatalog
@@ -136,18 +135,16 @@ public static class WindowsTweakCatalog
         D("allow_high_resolution_timer", "Разрешить high-resolution timer requests", "Разрешает приложениям запрашивать глобальное высокое разрешение таймера.", Gaming, WindowsTweakRisk.Safe, Mu,
             RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel", "GlobalTimerResolutionRequests", 1)),
         D("disable_auto_hdr", "Отключить Auto HDR", "Отключает автоматическое HDR-преобразование SDR-игр.", Gaming, WindowsTweakRisk.Caution, U,
-            "Set-AutoHdrToken $false", "Set-AutoHdrToken $true", requiresWindows11: true),
+            "Set-AutoHdrToken $false", requiresWindows11: true),
 
         D("fast_startup", "Быстрый запуск Windows", "Включает гибридное завершение и Hiberboot.", Performance, WindowsTweakRisk.Safe, Lmu,
-            A("powercfg.exe /hibernate on | Out-Null", RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power", "HiberbootEnabled", 1)),
-            "powercfg.exe /hibernate on | Out-Null"),
+            A("Set-HibernationBacked $true", RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power", "HiberbootEnabled", 1))),
         D("remove_startup_delay", "Убрать задержку автозапуска", "Запускает программы сразу после входа в Windows.", Performance, WindowsTweakRisk.Safe, Lmu,
             RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize", "StartupDelayInMSec", 0)),
         D("high_performance_plan", "План питания «Высокая производительность»", "Активирует встроенный план High performance, если он доступен.", Performance, WindowsTweakRisk.Caution, Mu,
-            "Enable-HighPerformancePlan", "powercfg.exe /setactive SCHEME_BALANCED | Out-Null"),
+            "Enable-HighPerformancePlan"),
         D("never_spin_down_disks", "Не отключать жёсткие диски", "Ставит тайм-аут отключения дисков в 0 для сети и батареи.", Performance, WindowsTweakRisk.Caution, U,
-            A("powercfg.exe /change disk-timeout-ac 0 | Out-Null", "powercfg.exe /change disk-timeout-dc 0 | Out-Null"),
-            A("powercfg.exe /change disk-timeout-ac 20 | Out-Null", "powercfg.exe /change disk-timeout-dc 10 | Out-Null")),
+            A("Set-PowerSettingBacked 'disk' 0 0", "")),
         D("performance_over_appearance", "Производительность вместо оформления", "Отключает большую часть анимаций и визуальных эффектов.", Performance, WindowsTweakRisk.Safe, Mu,
             A(RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects", "VisualFXSetting", 2), RS(@"HKCU:\Control Panel\Desktop", "MenuShowDelay", "100"), RS(@"HKCU:\Control Panel\Desktop\WindowMetrics", "MinAnimate", "0"))),
         D("disable_background_apps", "Отключить фоновые приложения", "Запрещает UWP-приложениям работать в фоне.", Performance, WindowsTweakRisk.Caution, Mu,
@@ -155,14 +152,13 @@ public static class WindowsTweakCatalog
         D("disable_power_throttling", "Отключить Power Throttling", "Не даёт Windows снижать производительность фоновых процессов.", Performance, WindowsTweakRisk.Caution, U,
             RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling", "PowerThrottlingOff", 1)),
         D("reduce_cpu_idle_drops", "Уменьшить просадки частоты CPU", "Ставит минимальное состояние процессора от сети на 100%; повышает нагрев и расход.", Performance, WindowsTweakRisk.Danger, Manual,
-            "powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100 | Out-Null; powercfg.exe /setactive SCHEME_CURRENT | Out-Null",
-            "powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 5 | Out-Null; powercfg.exe /setactive SCHEME_CURRENT | Out-Null"),
+            "Set-PowerSettingBacked 'processor-min' 100 -1"),
         D("disable_ntfs_last_access", "Отключить NTFS Last Access Timestamp", "Сокращает лишние обновления меток последнего доступа на NTFS.", Performance, WindowsTweakRisk.Safe, U,
-            "fsutil.exe behavior set DisableLastAccess 1 | Out-Null", "fsutil.exe behavior set DisableLastAccess 2 | Out-Null"),
+            "Set-NtfsBacked 1"),
         D("disable_network_throttling", "Отключить Network Throttling", "Убирает мультимедийное ограничение пропускной способности сети.", Performance, WindowsTweakRisk.Safe, Mu,
             RD(@"HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile", "NetworkThrottlingIndex", uint.MaxValue)),
         D("disable_hibernation", "Отключить гибернацию", "Освобождает hiberfil.sys, но отключает гибернацию и быстрый запуск.", Performance, WindowsTweakRisk.Caution, Manual,
-            "powercfg.exe /hibernate off | Out-Null", "powercfg.exe /hibernate on | Out-Null"),
+            "Set-HibernationBacked $false"),
         D("disable_storage_sense", "Отключить Контроль памяти", "Запрещает автоматическое удаление временных файлов Storage Sense.", Performance, WindowsTweakRisk.Safe, U,
             RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy", "01", 0)),
 
@@ -171,7 +167,7 @@ public static class WindowsTweakCatalog
         D("enable_long_paths", "Включить длинные пути (260+ символов)", "Разрешает Win32-приложениям использовать длинные пути.", Interface, WindowsTweakRisk.Safe, Lmu,
             RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem", "LongPathsEnabled", 1)),
         D("classic_context_menu", "Классическое контекстное меню Windows 11", "Возвращает полное контекстное меню без второго клика.", Interface, WindowsTweakRisk.Safe, U,
-            "Enable-ClassicContextMenu", "Disable-ClassicContextMenu", requiresWindows11: true),
+            "Enable-ClassicContextMenu", requiresWindows11: true),
         D("alt_tab_windows_only", "Alt+Tab: только окна", "Не показывает вкладки Microsoft Edge в переключателе Alt+Tab.", Interface, WindowsTweakRisk.Safe, Lmu,
             RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "MultiTaskingAltTabFilter", 3)),
         D("disable_click_to_do", "Отключить Click to Do", "Отключает системные AI-действия Click to Do.", Interface, WindowsTweakRisk.Safe, Lmu,
@@ -206,16 +202,13 @@ public static class WindowsTweakCatalog
             RD(@"HKLM:\SOFTWARE\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}", "System.IsPinnedToNameSpaceTree", 0), requiresWindows11: true),
 
         D("remove_consumer_apps", "Удалить рекламные приложения", "Удаляет новости, советы, Clipchamp, Solitaire и другие необязательные пакеты.", Apps, WindowsTweakRisk.Caution, Manual,
-            "Remove-AppList @('Clipchamp.Clipchamp','Microsoft.BingNews','Microsoft.BingWeather','Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.MicrosoftOfficeHub','Microsoft.MicrosoftSolitaireCollection','Microsoft.MixedReality.Portal','Microsoft.People','Microsoft.PowerAutomateDesktop','Microsoft.Todos','Microsoft.WindowsFeedbackHub','Microsoft.YourPhone','Microsoft.ZuneMusic','Microsoft.ZuneVideo')",
-            "Restore-BuiltInApps"),
+            "Remove-AppList @('Clipchamp.Clipchamp','Microsoft.BingNews','Microsoft.BingWeather','Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.MicrosoftOfficeHub','Microsoft.MicrosoftSolitaireCollection','Microsoft.MixedReality.Portal','Microsoft.People','Microsoft.PowerAutomateDesktop','Microsoft.Todos','Microsoft.WindowsFeedbackHub','Microsoft.YourPhone','Microsoft.ZuneMusic','Microsoft.ZuneVideo')"),
         D("remove_xbox_components", "Удалить Xbox-компоненты", "Удаляет Xbox/Game Pass пакеты и отключает связанные службы.", Apps, WindowsTweakRisk.Danger, Manual,
-            A("Remove-AppList @('Microsoft.GamingApp','Microsoft.Xbox.TCUI','Microsoft.XboxApp','Microsoft.XboxGameOverlay','Microsoft.XboxGamingOverlay','Microsoft.XboxIdentityProvider','Microsoft.XboxSpeechToTextOverlay')", SD("XboxGipSvc"), SD("XblAuthManager"), SD("XblGameSave"), SD("XboxNetApiSvc")),
-            "Restore-BuiltInApps"),
+            A("Remove-AppList @('Microsoft.GamingApp','Microsoft.Xbox.TCUI','Microsoft.XboxApp','Microsoft.XboxGameOverlay','Microsoft.XboxGamingOverlay','Microsoft.XboxIdentityProvider','Microsoft.XboxSpeechToTextOverlay')", SD("XboxGipSvc"), SD("XblAuthManager"), SD("XblGameSave"), SD("XboxNetApiSvc"))),
         D("remove_widgets", "Удалить виджеты", "Отключает виджеты политикой и удаляет Web Experience Pack.", Apps, WindowsTweakRisk.Caution, Manual,
-            A(RD(@"HKLM:\SOFTWARE\Policies\Microsoft\Dsh", "AllowNewsAndInterests", 0), RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa", 0), "Remove-AppList @('MicrosoftWindows.Client.WebExperience')"),
-            "Restore-BuiltInApps", requiresWindows11: true),
+            A(RD(@"HKLM:\SOFTWARE\Policies\Microsoft\Dsh", "AllowNewsAndInterests", 0), RD(@"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa", 0), "Remove-AppList @('MicrosoftWindows.Client.WebExperience')"), requiresWindows11: true),
         D("remove_microsoft_store", "Удалить Microsoft Store", "Удаляет Store и Store Purchase App. Восстановление может потребовать повторной регистрации пакетов.", Apps, WindowsTweakRisk.Danger, Manual,
-            "Remove-AppList @('Microsoft.WindowsStore','Microsoft.StorePurchaseApp')", "Restore-BuiltInApps"),
+            "Remove-AppList @('Microsoft.WindowsStore','Microsoft.StorePurchaseApp')"),
         D("disable_store_auto_updates", "Отключить автообновления Microsoft Store", "Отключает автоматическое обновление приложений Store политикой.", Apps, WindowsTweakRisk.Caution, U,
             RD(@"HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore", "AutoDownload", 2)),
         D("disable_onedrive_autostart", "Отключить автозапуск OneDrive", "Убирает OneDrive из автозагрузки текущего пользователя.", Apps, WindowsTweakRisk.Safe, Mu,
@@ -234,13 +227,11 @@ public static class WindowsTweakCatalog
         D("manual_windows_updates", "Только ручные обновления Windows", "Переводит Windows Update в режим уведомления, не отключая службу и Defender.", Services, WindowsTweakRisk.Caution, Manual,
             A(RD(@"HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU", "AUOptions", 2), RD(@"HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU", "NoAutoUpdate", 1))),
         D("disable_core_isolation_vbs", "Отключить Core Isolation / VBS", "Отключает HVCI/VBS и гипервизор. Ломает Hyper-V, WSL2, Sandbox и часть защит Windows.", Services, WindowsTweakRisk.Danger, Manual,
-            A(RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard", "EnableVirtualizationBasedSecurity", 0), RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled", 0), "bcdedit.exe /set hypervisorlaunchtype off | Out-Null"),
-            "bcdedit.exe /deletevalue hypervisorlaunchtype 2>$null | Out-Null"),
+            A(RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard", "EnableVirtualizationBasedSecurity", 0), RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled", 0), "Set-HypervisorBacked")),
         D("disable_usb_device_power_saving", "Отключить энергосбережение USB-устройств", "Отключает selective power management для перечисленных USB-устройств.", Services, WindowsTweakRisk.Danger, Manual,
             "Disable-UsbDevicePowerSaving"),
         D("disable_usb_selective_suspend", "Отключить USB Selective Suspend", "Отключает выборочное приостановление USB в активном плане питания.", Services, WindowsTweakRisk.Caution, Manual,
-            A("powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE 0 | Out-Null", "powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE 0 | Out-Null", "powercfg.exe /setactive SCHEME_CURRENT | Out-Null"),
-            A("powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE 1 | Out-Null", "powercfg.exe /setdcvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVE 1 | Out-Null", "powercfg.exe /setactive SCHEME_CURRENT | Out-Null")),
+            "Set-PowerSettingBacked 'usb' 0 0"),
         D("disable_driver_auto_install", "Отключить автоустановку драйверов", "Исключает драйверы из Windows Update; обновлять их придётся вручную.", Services, WindowsTweakRisk.Caution, Manual,
             A(RD(@"HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate", "ExcludeWUDriversInQualityUpdate", 1), RD(@"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching", "SearchOrderConfig", 0))),
         D("optimize_task_scheduler", "Оптимизировать Планировщик заданий", "Отключает только известные задачи CEIP и Application Experience.", Services, WindowsTweakRisk.Caution, U,
@@ -250,7 +241,7 @@ public static class WindowsTweakCatalog
         D("disable_auto_reboot_bsod", "Отключить автоперезагрузку после BSOD", "Оставляет код STOP на экране для диагностики вместо мгновенной перезагрузки.", Services, WindowsTweakRisk.Safe, Manual,
             RD(@"HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl", "AutoReboot", 0)),
         D("disable_reserved_storage", "Отключить зарезервированное хранилище", "Освобождает Reserved Storage; крупным обновлениям может не хватить места.", Services, WindowsTweakRisk.Caution, Manual,
-            "dism.exe /Online /Set-ReservedStorageState /State:Disabled | Out-Null", "dism.exe /Online /Set-ReservedStorageState /State:Enabled | Out-Null")
+            "Set-ReservedStorageBacked")
     };
 
     private static WindowsTweakDefinition D(
@@ -261,9 +252,8 @@ public static class WindowsTweakCatalog
         WindowsTweakRisk risk,
         WindowsTweakProfile profiles,
         string apply,
-        string restore = "",
         bool requiresWindows11 = false) =>
-        new(id, title, description, category, risk, profiles, apply, restore, requiresWindows11);
+        new(id, title, description, category, risk, profiles, apply, requiresWindows11);
 
     private static string A(params string[] commands) => string.Join(Environment.NewLine, commands.Where(x => !string.IsNullOrWhiteSpace(x)));
     private static string Q(string value) => value.Replace("'", "''", StringComparison.Ordinal);

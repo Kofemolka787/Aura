@@ -8,11 +8,18 @@ namespace ColorForge.Models;
 public sealed class TweakOptionViewModel : INotifyPropertyChanged
 {
     private bool _isSelected;
+    private string _statusText = "Нет сохранённого отчёта";
+    public string StatusText => _statusText;
+    public void UpdateStatus(string status)
+    {
+        _statusText = status switch { "Applied" => "Применён", "Restored" => "Восстановлен", "Skipped" => "Пропущен", "Failed" => "Ошибка", _ => "Не подтверждено" };
+        OnPropertyChanged(nameof(StatusText));
+    }
 
     public TweakOptionViewModel(WindowsTweakDefinition definition, bool isSelected)
     {
         Definition = definition;
-        _isSelected = isSelected;
+        _isSelected = isSelected && IsAvailable;
     }
 
     public WindowsTweakDefinition Definition { get; }
@@ -21,6 +28,8 @@ public sealed class TweakOptionViewModel : INotifyPropertyChanged
     public string Description => Definition.Description;
     public WindowsTweakRisk Risk => Definition.Risk;
     public bool RequiresWindows11 => Definition.RequiresWindows11;
+    public bool IsAvailable => WindowsTweaksService.HasVerifiedRestore(Id);
+    public string AvailabilityText => IsAvailable ? string.Empty : Id == "disable_hibernation" ? "Недоступно: нужно точное восстановление типа и размера hiberfil.sys" : "Удаление недоступно: нужен источник MSIX для восстановления";
     public string CompatibilityText => RequiresWindows11 ? "WINDOWS 11" : string.Empty;
     public string RiskText => Risk switch
     {
@@ -46,6 +55,7 @@ public sealed class TweakOptionViewModel : INotifyPropertyChanged
         get => _isSelected;
         set
         {
+            value = value && IsAvailable;
             if (_isSelected == value)
                 return;
             _isSelected = value;

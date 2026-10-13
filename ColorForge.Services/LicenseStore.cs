@@ -49,9 +49,7 @@ public sealed class LicenseStore
 		Directory.CreateDirectory(DirectoryPath);
 		byte[] json = JsonSerializer.SerializeToUtf8Bytes(session, JsonOptions);
 		byte[] encrypted = Protect(json);
-		string temporaryPath = SessionPath + ".tmp";
-		File.WriteAllBytes(temporaryPath, encrypted);
-		File.Move(temporaryPath, SessionPath, overwrite: true);
+		AtomicFile.Write(SessionPath, encrypted);
 	}
 
 	public void Clear()
@@ -68,7 +66,10 @@ public sealed class LicenseStore
 		}
 	}
 
-	private static byte[] Protect(byte[] data)
+    internal static byte[] ProtectBytes(byte[] data) => Protect(data);
+    internal static byte[] UnprotectBytes(byte[] data) => Unprotect(data);
+
+    private static byte[] Protect(byte[] data)
 	{
 		return RunCrypt(data, protect: true);
 	}

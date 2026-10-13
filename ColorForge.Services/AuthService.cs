@@ -8,7 +8,7 @@ using ColorForge.Models;
 
 namespace ColorForge.Services;
 
-public sealed record LoginResult(bool Success, string Message, string? LoginToken = null, string? Email = null);
+public sealed record LoginResult(bool Success, string Message, string? LoginToken = null, string? Email = null, AuthSession? Session = null);
 
 public sealed record ActivationResult(bool Success, string Message, AuthSession? Session = null);
 
@@ -21,6 +21,7 @@ public interface IAuthService
 	Task<ActivationResult> ActivateAsync(string loginToken, string licenseKey, string deviceId, CancellationToken cancellationToken = default);
 
 	Task<SessionValidationResult> ValidateSessionAsync(AuthSession session, CancellationToken cancellationToken = default);
+    Task RevokeSessionAsync(AuthSession session, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public sealed class DemoAuthService : IAuthService
@@ -56,7 +57,7 @@ public sealed class DemoAuthService : IAuthService
 	public async Task<ActivationResult> ActivateAsync(string loginToken, string licenseKey, string deviceId, CancellationToken cancellationToken = default)
 	{
 		await Task.Delay(620, cancellationToken);
-		if (!_pendingLogins.TryRemove(loginToken, out string? email))
+        if (!_pendingLogins.TryGetValue(loginToken, out string? email))
 		{
 			return new ActivationResult(false, "Сессия входа устарела. Вернись к первому шагу.");
 		}
@@ -68,6 +69,8 @@ public sealed class DemoAuthService : IAuthService
 		}
 
 		DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!_pendingLogins.TryRemove(loginToken, out email))
+            return new ActivationResult(false, "Этот токен уже использован.");
 		AuthSession session = new AuthSession
 		{
 			Email = email,
@@ -85,6 +88,7 @@ public sealed class DemoAuthService : IAuthService
 	public Task<SessionValidationResult> ValidateSessionAsync(AuthSession session, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (session.AuthMode != "Prototype") return Task.FromResult(new SessionValidationResult(false, "Эта лицензия требует серверную сборку."));
 		if (string.IsNullOrWhiteSpace(session.SessionToken) || session.SessionToken.Length < 32)
 		{
 			return Task.FromResult(new SessionValidationResult(false, "Сессия повреждена."));

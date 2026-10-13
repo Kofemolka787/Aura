@@ -4,6 +4,12 @@ namespace ColorForge.Models;
 
 public sealed class AuthSession
 {
+	public string AuthMode { get; set; } = "Prototype";
+
+    public string SignedPayload { get; set; } = string.Empty;
+
+    public string Signature { get; set; } = string.Empty;
+
 	public string Email { get; set; } = string.Empty;
 
 	public string DisplayName { get; set; } = "AURA User";

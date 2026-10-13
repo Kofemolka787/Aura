@@ -63,7 +63,9 @@ string restoreScript = WindowsTweaksService.BuildRestoreScript();
 Require(applyScript.Contains("Checkpoint-Computer", StringComparison.Ordinal), "Restore point creation is missing.");
 Require(applyScript.Contains("Save-AuraBackups", StringComparison.Ordinal), "Backup persistence is missing.");
 Require(restoreScript.Contains("Restore-AuraBackups", StringComparison.Ordinal), "Backup restore is missing.");
-Require(restoreScript.Contains("$AuraSkipBackupSave = $true", StringComparison.Ordinal), "Successful restore would recreate backup files.");
+Require(restoreScript.Contains("$script:AuraSkipBackupSave=$true", StringComparison.Ordinal), "Successful restore would recreate backup files.");
+Require(!restoreScript.Contains("SCHEME_BALANCED", StringComparison.Ordinal), "Restore must not reset an unrelated power plan.");
+Require(!restoreScript.Contains("Restore-BuiltInApps", StringComparison.Ordinal), "Restore must not register unrelated AppX packages.");
 
 WindowsTweakPreferences preferences = new();
 WindowsTweaksService.InitializePreferences(preferences, migrateLegacy: false);

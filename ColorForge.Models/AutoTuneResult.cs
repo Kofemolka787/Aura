@@ -15,6 +15,12 @@ public sealed record AutoTuneProgress(
 
 public sealed class AutoTuneResult
 {
+    public int GpuCoreOffsetKhz { get; init; }
+    public string CpuDeviceId { get; init; } = string.Empty;
+    public string GpuDeviceId { get; init; } = string.Empty;
+    public double CpuPl1Watts { get; init; }
+    public double CpuPl2Watts { get; init; }
+    public string GainKind { get; init; } = string.Empty;
     public AutoTuneTarget Target { get; init; }
 
     public bool Success { get; init; }

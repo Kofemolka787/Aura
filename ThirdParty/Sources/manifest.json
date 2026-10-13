@@ -1,0 +1,34 @@
+[
+  {
+    "name": "NvAPIWrapper-0.8.1.101",
+    "project": "https://github.com/falahati/NvAPIWrapper",
+    "commit": "2a41eb4d6b1bceff5dbb33a3b5ea70bd582214a7",
+    "archive": "NvAPIWrapper-0.8.1.101.tar.gz",
+    "sha256": "e80462fdbb865aef4f9c330bcdf564e0e55297acadef187608d038d0dc5a519b",
+    "bytes": 1687927
+  },
+  {
+    "name": "PawnIO-2.2.0",
+    "project": "https://github.com/namazso/PawnIO",
+    "commit": "5cdf470831fdfff3f7f1d06363ca6b230f3bf35a",
+    "archive": "PawnIO-2.2.0.tar.gz",
+    "sha256": "bb46d0f2a949434235c6d7eca4322a14b8a7114f91692ef7527b2b11476e55ba",
+    "bytes": 114959
+  },
+  {
+    "name": "PawnIO.Modules-0.2.11",
+    "project": "https://github.com/namazso/PawnIO.Modules",
+    "commit": "52a7e536dff3e53c96917a28caac5e0fa6510696",
+    "archive": "PawnIO.Modules-0.2.11.tar.gz",
+    "sha256": "6625288d8dc37d12c57d954b4038340d3c2aacb189658acce778505bc60ffee7",
+    "bytes": 1016659
+  },
+  {
+    "name": "LibreHardwareMonitor-0.9.6",
+    "project": "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor",
+    "commit": "3d331e3370efb858411f19511373eff65a218701",
+    "archive": "LibreHardwareMonitor-0.9.6.tar.gz",
+    "sha256": "5a51b3d811f82af0f140e1ae94a8a80417a3cb33fff27d12f9ecc0d5aadd88ae",
+    "bytes": 3679808
+  }
+]

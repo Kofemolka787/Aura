@@ -7,6 +7,9 @@ namespace ColorForge.Models;
 
 public sealed class AppSettings
 {
+    public int SchemaVersion { get; set; }
+    public bool ApplyProfileOnStartup { get; set; } = true;
+    public Dictionary<string, DisplayProfile> ManualMonitorProfiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public bool EffectsEnabled { get; set; } = true;
 
 	public bool AutoSwitchGames { get; set; } = true;

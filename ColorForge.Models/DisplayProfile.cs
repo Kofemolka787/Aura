@@ -16,11 +16,9 @@ public sealed class DisplayProfile
 
 	public int Temperature { get; set; } = 6500;
 
-	public int Hue { get; set; }
 
 	public int Shadows { get; set; }
 
-	public ColorBlindMode ColorBlind { get; set; }
 
 	public DisplayProfile Clone(string? name = null)
 	{
@@ -33,9 +31,7 @@ public sealed class DisplayProfile
 			Contrast = Contrast,
 			Gamma = Gamma,
 			Temperature = Temperature,
-			Hue = Hue,
 			Shadows = Shadows,
-			ColorBlind = ColorBlind
 		};
 	}
 }

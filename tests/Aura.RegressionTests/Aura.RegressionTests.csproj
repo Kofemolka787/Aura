@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../Assets/Runtime/WindowsTweaks.ps1" Link="Runtime/WindowsTweaks.ps1" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+    <Compile Include="../../ColorForge.Models/*.cs" Link="Models/%(Filename)%(Extension)" />
+    <Compile Include="../../ColorForge.Services/HardwareSafety.cs" />
+    <Compile Include="../../ColorForge.Services/FreshSensorSampling.cs" />
+    <Compile Include="../../ColorForge.Services/GpuContracts.cs" />
+    <Compile Include="../../ColorForge.Services/NvidiaOverclockService.cs" />
+    <Compile Include="../../ColorForge.Services/HardwareRecoveryStore.cs" />
+    <Compile Include="../../ColorForge.Services/IntelPowerController.cs" />
+    <Compile Include="../../ColorForge.Services/CpuAutoTuneService.cs" />
+    <Compile Include="../../ColorForge.Services/PawnIoBridge.cs" />
+    <Compile Include="../../ColorForge.Services/DeviceIdentityService.cs" />
+    <Compile Include="../../ColorForge.Services/LicenseStore.cs" />
+    <Compile Include="../../ColorForge.Services/AuthService.cs" />
+    <Compile Include="../../ColorForge.Services/AppLogService.cs" />
+    <Compile Include="../../ColorForge.Services/SettingsStore.cs" />
+    <Compile Include="../../ColorForge.Services/AtomicFile.cs" />
+    <Compile Include="../../ColorForge.Services/WindowsTweaksService.cs" />
+    <Compile Include="../../ColorForge.Services/WindowsTweakCatalog.cs" />
+    <Compile Include="../../ColorForge.Services/ExternalToolRunner.cs" />
+    <Compile Include="../../ColorForge.Services/StutterDoctorService.cs" />
+    <Compile Include="../../ColorForge.Services/BenchmarkService.cs" />
+    <Compile Include="../../ColorForge.Services/BenchmarkHistoryStore.cs" />
+    <Compile Include="../../ColorForge.Services/EmbeddedToolExtractor.cs" />
+    <Compile Include="../../ColorForge.Services/GameProfileController.cs" />
+    <Compile Include="../../ColorForge.Services/ProfileCatalogService.cs" />
+    <Compile Include="../../ColorForge.Services/CrosshairGeometry.cs" />
+    <Compile Include="../../ColorForge.Services/UpdateCheckService.cs" />
+    <Compile Include="../../ColorForge.Services/TuningHistoryStore.cs" />
+    <ProjectReference Include="../Aura.ToolFixture/Aura.ToolFixture.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <!-- Linux fixtures use only the managed Sensor/Hardware types from the pinned
+       Windows runtime assembly, without opening Computer or calling any driver. -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <None Include="$(NuGetPackageRoot)/librehardwaremonitorlib/0.9.6/runtimes/win-x64/lib/net8.0/LibreHardwareMonitorLib.dll"
+          Link="SensorFixtureRuntime/LibreHardwareMonitorLib.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

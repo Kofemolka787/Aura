@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+release-*/
+artifacts/
+.vs/
+*.user
+*.suo
+*.pfx
+*.p12
+*.key
+*.pem
+.env
+.env.*
+!*.example
+server-data/
+TestResults/

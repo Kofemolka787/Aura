@@ -1,0 +1,574 @@
+[
+  {
+    "id": "BlackSharp.Core",
+    "version": "1.0.7",
+    "contentHash": "LbEc4w0oZ7w4p6+8OjPZgwsJW470aQRuYZgZ9aMN2PW9R79pW3OnZQ32AVVx/21rstX9mKbXaOLWpSAxoANYxQ==",
+    "license": "MPL-2.0",
+    "licenseUrl": "https://licenses.nuget.org/MPL-2.0",
+    "projectUrl": "https://github.com/Blacktempel/BlackSharp",
+    "licenseFiles": [
+      "BlackSharp.Core-1.0.7-LICENSE"
+    ],
+    "authors": "BlackSharp.Core",
+    "copyright": "Florian K."
+  },
+  {
+    "id": "DiskInfoToolkit",
+    "version": "1.1.2",
+    "contentHash": "vN46svt1hQDkm269p6CzfwDpb/fbyp8oNQuePcvjNSryPLfsxIJZU8amEhir+x5bsKd0ymOXTySzPwFO8o0dpw==",
+    "license": "MPL-2.0",
+    "licenseUrl": "https://licenses.nuget.org/MPL-2.0",
+    "projectUrl": "https://github.com/Blacktempel/DiskInfoToolkit",
+    "licenseFiles": [
+      "DiskInfoToolkit-1.1.2-LICENSE"
+    ],
+    "authors": "DiskInfoToolkit",
+    "copyright": "Florian K."
+  },
+  {
+    "id": "HidSharp",
+    "version": "2.6.4",
+    "contentHash": "UcGvtnXFcatwHBXr+ei8GEXvg//wjGmDGQ6Xvb+7M4vHjURAhSLIJ+dSZv0BnAhQEpNlH8G4P7JxYnMH8Aph4g==",
+    "license": "LICENSE.txt",
+    "licenseUrl": "https://aka.ms/deprecateLicenseUrl",
+    "projectUrl": "https://software.seekye.com/hidsharp",
+    "licenseFiles": [
+      "HidSharp-2.6.4-LICENSE.txt"
+    ],
+    "authors": "James F. Bellinger",
+    "copyright": "Copyright 2010-2025 James Bellinger"
+  },
+  {
+    "id": "Konscious.Security.Cryptography.Argon2",
+    "version": "1.3.1",
+    "contentHash": "T+OAGwzYYXftahpOxO7J4xA5K6urxwGnWQf3M+Jpi+76Azv/0T3M5SuN+h7/QvXuiqNw3ZEZ5QqVLI5ygDAylw==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://github.com/kmaragon/Konscious.Security.Cryptography",
+    "licenseFiles": [
+      "Konscious.Security.Cryptography.Argon2-1.3.1-LICENSE"
+    ],
+    "authors": "Keef Aragon",
+    "copyright": "(c) 2024 Keef Aragon"
+  },
+  {
+    "id": "Konscious.Security.Cryptography.Blake2",
+    "version": "1.1.1",
+    "contentHash": "odwOyzj/J/lHJZNwFWJGU/LRecBShupAJ2S8TQqZfhUe9niHzu/voBYK5wuVKsvSpzbfupKQYZguVyIk1sgOkQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://github.com/kmaragon/Konscious.Security.Cryptography",
+    "licenseFiles": [
+      "Konscious.Security.Cryptography.Blake2-1.1.1-LICENSE"
+    ],
+    "authors": "Keef Aragon",
+    "copyright": "(c) 2024 Keef Aragon"
+  },
+  {
+    "id": "LibreHardwareMonitorLib",
+    "version": "0.9.6",
+    "contentHash": "W4hQ5Ja51/1cEDZnh9kG5UHFBwjjY2+oIpSUhSsgeYXKRKezrkw3sEFrhQkrOuo53xkXyfWV8ZErMqQuGqWIMQ==",
+    "license": "MPL-2.0",
+    "licenseUrl": "https://licenses.nuget.org/MPL-2.0",
+    "projectUrl": "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor",
+    "licenseFiles": [
+      "LibreHardwareMonitorLib-0.9.6-LICENSE"
+    ],
+    "authors": "LibreHardwareMonitorLib",
+    "copyright": "LibreHardwareMonitor"
+  },
+  {
+    "id": "Microsoft.Data.Sqlite",
+    "version": "8.0.31",
+    "contentHash": "WBM+0lBcUKeItKCAdBuTariYoV2tAICxE4FSzFDxlZXx9mO1YSr9NBD7vX2tYrKCHKOhpdwVJPa7fMD6zVHDjw==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://docs.microsoft.com/dotnet/standard/data/sqlite/",
+    "licenseFiles": [
+      "Microsoft.Data.Sqlite-8.0.31-LICENSE"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "Microsoft.Data.Sqlite.Core",
+    "version": "8.0.31",
+    "contentHash": "o6muD6VLO/Et5Cmi5UGSvj5cwjTpc26/OP6z96+4aK4YhCmKlSHkFTEKCiR/JzDDI6E/qrkfEt9ybu9J0tiKrQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://docs.microsoft.com/dotnet/standard/data/sqlite/",
+    "licenseFiles": [
+      "Microsoft.Data.Sqlite.Core-8.0.31-LICENSE"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "Microsoft.NET.ILLink.Tasks",
+    "version": "8.0.31",
+    "contentHash": "OJdAGATV2QoVWL11zlDLEluA06q8rK+cgZR47ohrO8V+Qj5z9dlvN7bG9/0e5t0IOe+yD8tREC0bpsEgDGrzIQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [
+      "Microsoft.NET.ILLink.Tasks-8.0.31-LICENSE.TXT"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "Mono.Posix.NETStandard",
+    "version": "1.0.0",
+    "contentHash": "vSN/L1uaVwKsiLa95bYu2SGkF0iY3xMblTfxc8alSziPuVfJpj3geVqHGAA75J7cZkMuKpFVikz82Lo6y6LLdA==",
+    "license": null,
+    "licenseUrl": "https://go.microsoft.com/fwlink/?linkid=869050",
+    "projectUrl": "https://go.microsoft.com/fwlink/?linkid=869051",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "NvAPIWrapper.Net",
+    "version": "0.8.1.101",
+    "contentHash": "qX+5EQ32tCTqBkX/9BNfx7w4HPi18s3XhMubjbxSjPhYQ6pXWL+HGnaZEmGvFlOxvsQN+/6eV3x5bRo1CDY/mQ==",
+    "license": null,
+    "licenseUrl": "https://github.com/falahati/NvAPIWrapper/blob/master/LICENSE",
+    "projectUrl": "https://github.com/falahati/NvAPIWrapper",
+    "licenseFiles": [
+      "NvAPIWrapper.Net-0.8.1.101-LICENSE"
+    ],
+    "authors": "Soroush Falahati",
+    "copyright": "Copyright © Soroush Falahati 2018 (falahati.net)"
+  },
+  {
+    "id": "RAMSPDToolkit-NDD",
+    "version": "1.4.2",
+    "contentHash": "pqIwn/HqXFnW4FVKybq6gZh3YK14OOLGWkgZzDdewjAInCOu86EO2L+FCQo8j1/v1sKwv+vgX5pnehxyrlJYJw==",
+    "license": "MPL-2.0",
+    "licenseUrl": "https://licenses.nuget.org/MPL-2.0",
+    "projectUrl": "https://github.com/Blacktempel/RAMSPDToolkit",
+    "licenseFiles": [
+      "RAMSPDToolkit-NDD-1.4.2-LICENSE"
+    ],
+    "authors": "RAMSPDToolkit-NDD",
+    "copyright": "Florian K."
+  },
+  {
+    "id": "SQLitePCLRaw.bundle_e_sqlite3",
+    "version": "2.1.12",
+    "contentHash": "mAgscpQMLw5/nfA1Q5oJVAT29yROUo1ifZGbbTpx/lwZpSxMUGoYbKfmvdm8oXER+RzxqBmmQzeBEVKfeHv2nw==",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "projectUrl": null,
+    "licenseFiles": [],
+    "authors": "Eric Sink",
+    "copyright": "Copyright 2014-2024 SourceGear, LLC"
+  },
+  {
+    "id": "SQLitePCLRaw.core",
+    "version": "2.1.12",
+    "contentHash": "ETpNw9DY3ckWLgRRAeCHj+GKOuPi61aeczkXhgHexUvqoZBAYg8RYESE2J7O1M7+o6QbdSEZwrw9bfqztUVWXg==",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "projectUrl": null,
+    "licenseFiles": [],
+    "authors": "Eric Sink",
+    "copyright": "Copyright 2014-2024 SourceGear, LLC"
+  },
+  {
+    "id": "SQLitePCLRaw.lib.e_sqlite3",
+    "version": "2.1.12",
+    "contentHash": "fWi8Dbknuhgg72fWinIdjXVaqO1hHL4YBBwVLnr7e1c9TAZwJ0QE38j9syW1hwx6HaqEVTwI+O07WPdZn8Rp0w==",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "projectUrl": null,
+    "licenseFiles": [],
+    "authors": "Eric Sink",
+    "copyright": "Copyright 2014-2024 SourceGear, LLC"
+  },
+  {
+    "id": "SQLitePCLRaw.provider.e_sqlite3",
+    "version": "2.1.12",
+    "contentHash": "W3oH4XIfCzFrgUSDKHhN6N+dgzA5YHOR2VxX8GB6Qy7CyrJJgxPEG8NirgYWlPQC5P2jz2knSsexWu4tDUL33g==",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "projectUrl": null,
+    "licenseFiles": [],
+    "authors": "Eric Sink",
+    "copyright": "Copyright 2014-2024 SourceGear, LLC"
+  },
+  {
+    "id": "SharpGen.Runtime",
+    "version": "2.4.2-beta",
+    "contentHash": "niTtWAUov1F7wZGAlVeEvW+Tnqvg5yTmhI7rxmYu2Utoyu2TbC9tWWpUpMs0PQg5lu5svoYpCAztNjxCqMFP/w==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://github.com/SharpGenTools/SharpGenTools",
+    "licenseFiles": [
+      "SharpGen.Runtime-2.4.2-beta-LICENSE"
+    ],
+    "authors": "jkoritzinsky",
+    "copyright": "(c) 2010-2017 Alexandre Mutel, 2017-2023 Jeremy Koritzinsky, 2023-2024 Amer Koleci"
+  },
+  {
+    "id": "SharpGen.Runtime.COM",
+    "version": "2.4.2-beta",
+    "contentHash": "9lxDFMiepqo3lJQzMSjECCIONeCc2f3Drokgj6HtrTLZcJSftNgcLbD6/iXYj2iphkwgrZb1oLsDOZxoFZkawQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://github.com/SharpGenTools/SharpGenTools",
+    "licenseFiles": [
+      "SharpGen.Runtime.COM-2.4.2-beta-LICENSE"
+    ],
+    "authors": "jkoritzinsky",
+    "copyright": "(c) 2010-2017 Alexandre Mutel, 2017-2023 Jeremy Koritzinsky, 2023-2024 Amer Koleci"
+  },
+  {
+    "id": "System.CodeDom",
+    "version": "10.0.2",
+    "contentHash": "eih1MnL4tnSjHUhzae0dmpu50Sm0s54faHZc8yhzYfmubAubkBIIulYYN28fasD1m41mhl6Cenhs9/F0aLv3FA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.IO.Pipelines",
+    "version": "9.0.1",
+    "contentHash": "uXf5o8eV/gtzDQY4lGROLFMWQvcViKcF8o4Q6KpIOjloAQXrnscQSu6gTxYJMHuNJnh7szIF9AzkaEq+zDLoEg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [
+      "System.IO.Pipelines-9.0.1-LICENSE.TXT"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "Zs04mZ/dQtaFQ+hpQNDtijBs+6aM9j2fQPp8zNZTfh8DboVNNv7Sw6gH00hT+PVcAhEozlfT+n59Svm6Ug8ROA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.Management",
+    "version": "10.0.2",
+    "contentHash": "eFftuy3i844lVKCb4lJvvjKfcvPVcW8KrAdSaIOcRL42/Fisj46hwUs8Bky+4avzMe5Snm5t7aSayOI1mybYXg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.Memory",
+    "version": "4.5.4",
+    "contentHash": "1MbJTHS1lZ4bS4FmsJjnuGJOu88ZzTT2rLvrhW7Ygic+pC0NWA+3hgAen0HRdsocuQXCkUTdFn9yHJJhsijDXw==",
+    "license": null,
+    "licenseUrl": "https://github.com/dotnet/corefx/blob/master/LICENSE.TXT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [
+      "System.Memory-4.5.4-LICENSE.TXT"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.Text.Encodings.Web",
+    "version": "9.0.1",
+    "contentHash": "XkspqduP2t1e1x2vBUAD/xZ5ZDvmywuUwsmB93MvyQLospJfqtX0GsR/kU0vUL2h4kmvf777z3txV2W4NrQ9Qg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [
+      "System.Text.Encodings.Web-9.0.1-LICENSE.TXT"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.Text.Json",
+    "version": "9.0.1",
+    "contentHash": "eqWHDZqYPv1PvuvoIIx5pF74plL3iEOZOl/0kQP+Y0TEbtgNnM2W6k8h8EPYs+LTJZsXuWa92n5W5sHTWvE3VA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [
+      "System.Text.Json-9.0.1-LICENSE.TXT"
+    ],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "System.Threading.AccessControl",
+    "version": "10.0.3",
+    "contentHash": "PO3IM2ZXOJTjuuFDYMP62i290J41y891C+ytTa1HCDUo5FdywK/Ro6jflWHmbgZ2tz62EhRDa8WIT2vVJX45AQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "Vortice.D3DCompiler",
+    "version": "3.8.3",
+    "contentHash": "OmGPMhf/xnD8/HZ0ms1x7xSFyz+6e6mveCqhu0EioMFQYKJM35/ZVLLo+FIB5KpsrlqhM/jvYHYPAxu45YONGg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": null,
+    "licenseFiles": [
+      "Vortice.D3DCompiler-3.8.3-LICENSE"
+    ],
+    "authors": "Amer Koleci",
+    "copyright": "Copyright (c) Amer Koleci and Contributors"
+  },
+  {
+    "id": "Vortice.DXGI",
+    "version": "3.8.3",
+    "contentHash": "MbAUnTeQ6WD99ctAdrj5CQO2I7oaax0Kt2eVdWSUj0bYP9Ed0726+s7dIHe4+tqhpmINW/dcPt0mNtc72o+E0w==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": null,
+    "licenseFiles": [
+      "Vortice.DXGI-3.8.3-LICENSE"
+    ],
+    "authors": "Amer Koleci",
+    "copyright": "Copyright (c) Amer Koleci and Contributors"
+  },
+  {
+    "id": "Vortice.Direct3D11",
+    "version": "3.8.3",
+    "contentHash": "JgFUswu2mgrSwcd0KRF2AnfeE5VbMEgcicmxPD1g2yXyomPIHbnX3wldBNHPOzzD0URC1WJ/pO1ymfi3imZwvg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": null,
+    "licenseFiles": [
+      "Vortice.Direct3D11-3.8.3-LICENSE"
+    ],
+    "authors": "Amer Koleci",
+    "copyright": "Copyright (c) Amer Koleci and Contributors"
+  },
+  {
+    "id": "Vortice.DirectX",
+    "version": "3.8.3",
+    "contentHash": "nKwSavv0w5rDF7prSefqAVPDcTyqrfZxKFMVfttiXPfm62VdA/1d+b3PhCZpW4xO7jXczXDwjQdWgD1zGsvM8w==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": null,
+    "licenseFiles": [
+      "Vortice.DirectX-3.8.3-LICENSE"
+    ],
+    "authors": "Amer Koleci",
+    "copyright": "Copyright (c) Amer Koleci and Contributors"
+  },
+  {
+    "id": "Vortice.Mathematics",
+    "version": "2.1.0",
+    "contentHash": "KK+SjNSuKdP+zbavekubi+vaeb1Jo4k87ZF6CMkVWjr6RjJwc8peVtmgzXXDIMy4ZC3ZISyk3llY3q65ISOkBQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://github.com/amerkoleci/Vortice.Mathematics",
+    "licenseFiles": [
+      "Vortice.Mathematics-2.1.0-LICENSE"
+    ],
+    "authors": "Amer Koleci",
+    "copyright": "Copyright (c) Amer Koleci and Contributors"
+  },
+  {
+    "id": "runtime.android-arm.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "6W4qZX0X7FF+PHM9Kaa5ZsTLcGJAzCU7FB4Tjy1vTg2rUIEjDqijWTtpz8vY6gBzZaG+tD0/EKUyGnfq6d/d/Q==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.android-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "4OdNg2Du1kvm0b4tSErkA4wfH32YmgUqeSLzekk6NdCR61brCp4vttTJl0epZMwbRppXuy/jY7pV0WtP4ymnfQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.android-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "nP7xJSDSqRktV4kEd0kr4n0xhzJFuQjh7L/AgrKB3C4QK5TA/8NimJmTl1ogngvnXn2vilH2Hk+keBIvuoGWCA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.android-x86.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "f/neqijoVpgl/PcrXYeLNfCC2t74XYIcaHvtSaF3zaIdJ3hf5wrwRC9gzYLXHRLg/j4DRsCHEw8rlux/dNh7XA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-arm.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "cwiQmy95Zd42K4kMzDt8GkXNKHWDkRZIIyb3MteRrgJKubH2DMA6VY3JiFeR+1hQ7i31Ck+dYyt8wUkElZ/NrQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "cEx+Xm0ZNPsuoYTFwXZ6qRstwXQ7vJjbb3jWzo5s5xIeEgpTDdfiUjTgK3Gl618mWgb7+Gn6Vt5pT07RxFC28Q==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "kB21sNzlKgTj3V/LZhnTLFuViiGKtkiUG2GdEW+z3jdeUtRoxqBBXryzMqy0oUOy5idBW2pA6bh+iLGaj+GThA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-bionic-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "/Ud7EYdpnBGJ/x7DdqVFEJOQtEcf9rsD6/1iyUBJNfhhs8JljZLewJHp1cXr1DVCaWWc9jSWIc4g+QpMct/22A==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-musl-arm.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "pBubukkmXD9e4Ju004bEHL3TE5mYahONCVwrJ5b+7/cj8smSY2H5sKTyURiVF1EfX55yORKyTyQ3dALA5yTTlg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-musl-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "+FR6SvpZya66Wv26MVEK4l2gnjfZnBVUz675eaTcMQ/KWAy+GMaPyhRaBIMnQJf5gfuu3x1qgeAzpmeFkOPGBw==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-musl-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "Ee1XnOSKgeJGBcnd7LLLkyXEbE/JcpQ3pUlbPXqugl0YD55jVubpYebzGYI+ilrnBLCRiV0BR822b2XmerIKGw==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.linux-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "U+Zr1KuBDIIwgR2gTMFbBAtkr4WnKdEXxmknPa3X8Qy6oCi4+MTRmq2zmTh7wxXQXTdmhfXg2tyy7DuVHtB+xQ==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "9yTgh3ZKCBTGEO4YS76g/K15s2qSdeEZDqWteixUPeRsETsuBUwUPF39Fk39OPlRgwhqEuhtHy1Hf6BSOETfAg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.maccatalyst-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "0gxqUZYQ1T1o5VzgyEMKiSPKJtPbleF2nbjZa5QKZQvPgSlrZFL+FrW4LywIk2scOpXu+Vd5Mv8AGGV7slhYWA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "7U3HW0JzAeg9PWaYBcyWLFMq2RSexgJ8uVCR3E2QVJJ/IZnRT0wYRhyEx3zBSbKYzN3KE6MDiRd6CN4hR7YkqA==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.osx-arm64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "qnEjXlIazxaRAhBet0EupWoJQ9PKsXjThpMKGP/ZsCjZgHEb+zs9wft82wY27OagyPOCg9D4hJHWKt5LTbJNZg==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  },
+  {
+    "id": "runtime.osx-x64.runtime.native.System.IO.Ports",
+    "version": "10.0.3",
+    "contentHash": "L1gcOL5kcfeeujKQbqJmpeTLsT0c6DeaJ9w6PY9oZ+/WESyya+Zj7StKguXR5j93o3o86FjcN05yufpoCz7R2g==",
+    "license": "MIT",
+    "licenseUrl": "https://licenses.nuget.org/MIT",
+    "projectUrl": "https://dot.net/",
+    "licenseFiles": [],
+    "authors": "Microsoft",
+    "copyright": "© Microsoft Corporation. All rights reserved."
+  }
+]

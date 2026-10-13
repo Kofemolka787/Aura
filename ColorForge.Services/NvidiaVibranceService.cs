@@ -23,11 +23,25 @@ internal sealed class NvidiaVibranceService
 
 	public bool SetPercent(int percent, string deviceName)
 	{
+        return SetLevel(Math.Clamp(((double)percent - 50) / 50, -1, 1), deviceName);
+    }
+
+    public double? GetLevel(string deviceName)
+    {
+        try
+        {
+            var display = Display.GetDisplays().FirstOrDefault(x => x.Name.Equals(deviceName, StringComparison.OrdinalIgnoreCase));
+            return display?.DigitalVibranceControl.NormalizedLevel;
+        }
+        catch (Exception exception) { AppLogService.Error("Could not capture NVIDIA color baseline.", exception); return null; }
+    }
+
+    public bool SetLevel(double normalizedLevel, string deviceName)
+    {
 		if (!IsAvailable)
 		{
 			return false;
 		}
-		double normalizedLevel = Math.Clamp(((double)percent - 50.0) / 50.0, -1.0, 1.0);
 		try
 		{
 			Display val = ((IEnumerable<Display>)Display.GetDisplays()).FirstOrDefault((Func<Display, bool>)((Display x) => x.Name.Equals(deviceName, StringComparison.OrdinalIgnoreCase)));
@@ -36,7 +50,7 @@ internal sealed class NvidiaVibranceService
 				return false;
 			}
 			val.DigitalVibranceControl.NormalizedLevel = normalizedLevel;
-			return true;
+            return Math.Abs(val.DigitalVibranceControl.NormalizedLevel - normalizedLevel) < 0.025;
 		}
 		catch
 		{

@@ -13,7 +13,7 @@
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <Border Width="46" Height="46" CornerRadius="14" Background="{StaticResource AccentGradient}"><TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="21" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-          <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="BIOS GUIDE" Foreground="#C999F1" FontSize="10" FontWeight="Bold"/><TextBlock Text="Оптимизация UEFI для игр" FontSize="19" FontWeight="Bold" Margin="0,3,0,0"/><TextBlock Text="Рекомендации для ASUS TUF A520M-PLUS · значения проверяй перед сохранением." Foreground="#91869B" FontSize="10" Margin="0,4,0,0"/></StackPanel>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="BIOS GUIDE" Foreground="#C999F1" FontSize="10" FontWeight="Bold"/><TextBlock Text="Оптимизация UEFI для игр" FontSize="19" FontWeight="Bold" Margin="0,3,0,0"/><TextBlock Text="Примеры меню ASUS TUF A520M-PLUS · модель платы автоматически не определяется." Foreground="#91869B" FontSize="10" Margin="0,4,0,0"/></StackPanel>
           <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Перезагрузить в UEFI" Padding="17,9" Click="RestartToFirmware_Click"/>
         </Grid>
       </Border>

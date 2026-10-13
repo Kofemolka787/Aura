@@ -195,7 +195,10 @@ public static class DisplayScalingService
 
 	private const uint DISPLAYCONFIG_SCALING_ASPECTRATIOCENTEREDMAX = 4u;
 
-	public static bool TryApply(string deviceName, bool stretch, out string error)
+    public static bool TryApply(string deviceName, bool stretch, out string error, bool persist = true)
+        => TryApplyScaling(deviceName, stretch ? 3u : 4u, out error, persist);
+
+    public static bool TryApplyScaling(string deviceName, uint scaling, out string error, bool persist = true)
 	{
 		error = string.Empty;
 		uint numPathArrayElements = 0u;
@@ -245,7 +248,7 @@ public static class DisplayScalingService
 				if (DisplayConfigGetDeviceInfo(ref requestPacket) == 0 && requestPacket.ViewGdiDeviceName.Equals(deviceName, StringComparison.OrdinalIgnoreCase))
 				{
 					DisplayConfigPathInfo displayConfigPathInfo = array[i];
-					displayConfigPathInfo.TargetInfo.Scaling = (stretch ? 3u : 4u);
+                    displayConfigPathInfo.TargetInfo.Scaling = scaling;
 					array[i] = displayConfigPathInfo;
 					flag = true;
 				}
@@ -255,10 +258,12 @@ public static class DisplayScalingService
 				error = "Windows не нашла выбранный дисплей в активной конфигурации.";
 				return false;
 			}
-			displayConfigBufferSizes = SetDisplayConfig(numPathArrayElements2, array, modeInfoArrayElements, modeInfoArray, 1696u);
+        displayConfigBufferSizes = SetDisplayConfig(numPathArrayElements2, array, modeInfoArrayElements, modeInfoArray, persist ? 1696u : 1184u);
 			if (displayConfigBufferSizes == 0)
 			{
-				return true;
+                if (TryReadScaling(deviceName, out uint actual) && actual == scaling) return true;
+                error = "Драйвер не подтвердил запрошенное масштабирование.";
+                return false;
 			}
 			error = Describe(displayConfigBufferSizes);
 			return false;
@@ -271,6 +276,26 @@ public static class DisplayScalingService
 	{
 		return "Windows scaling · " + new Win32Exception(code).Message;
 	}
+
+    public static bool TryReadScaling(string deviceName, out uint scaling)
+    {
+        scaling = 0;
+        if (GetDisplayConfigBufferSizes(2, out uint pathCount, out uint modeCount) != 0) return false;
+        var paths = new DisplayConfigPathInfo[pathCount];
+        var modes = new DisplayConfigModeInfo[modeCount];
+        if (QueryDisplayConfig(2, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0) return false;
+        for (int index = 0; index < pathCount; index++)
+        {
+            DisplayConfigSourceDeviceName source = new()
+            {
+                Header = new() { Type = 1, Size = (uint)Marshal.SizeOf<DisplayConfigSourceDeviceName>(), AdapterId = paths[index].SourceInfo.AdapterId, Id = paths[index].SourceInfo.Id },
+                ViewGdiDeviceName = string.Empty
+            };
+            if (DisplayConfigGetDeviceInfo(ref source) == 0 && source.ViewGdiDeviceName.Equals(deviceName, StringComparison.OrdinalIgnoreCase))
+            { scaling = paths[index].TargetInfo.Scaling; return true; }
+        }
+        return false;
+    }
 
 	[DllImport("user32.dll")]
 	private static extern int GetDisplayConfigBufferSizes(uint flags, out uint numPathArrayElements, out uint numModeInfoArrayElements);

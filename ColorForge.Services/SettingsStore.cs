@@ -9,126 +9,139 @@ namespace ColorForge.Services;
 
 public sealed class SettingsStore
 {
-	private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-	{
-		WriteIndented = true,
-		PropertyNameCaseInsensitive = true
-	};
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
+    private readonly object _gate = new();
+    public string DirectoryPath { get; }
+    public string SettingsPath => Path.Combine(DirectoryPath, "settings.json");
+    public SettingsStore(string? directory = null) =>
+        DirectoryPath = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AURA");
 
-	public string DirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AURA");
+    public AppSettings Load()
+    {
+        lock (_gate)
+        {
+            try
+            {
+                if (File.Exists(SettingsPath))
+                {
+                    if (new FileInfo(SettingsPath).Length > 4 * 1024 * 1024) throw new InvalidDataException("Файл настроек превышает 4 МиБ.");
+                    AppSettings settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Options)
+                        ?? throw new InvalidDataException("Пустой объект настроек.");
+                    return Normalize(settings);
+                }
+            }
+            catch (Exception exception)
+            {
+                AppLogService.Error("Settings could not be loaded; preserved source and safe defaults are used.", exception);
+                if (File.Exists(SettingsPath))
+                {
+                    try { File.Copy(SettingsPath, Path.Combine(DirectoryPath, $"settings.corrupt-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json")); }
+                    catch (Exception backupError) { AppLogService.Error("Could not preserve unreadable settings.", backupError); }
+                }
+            }
+            AppSettings defaults = new();
+            WindowsTweaksService.InitializePreferences(defaults.Tweaks, false);
+            return Normalize(defaults);
+        }
+    }
 
-	public string SettingsPath => Path.Combine(DirectoryPath, "settings.json");
+    public static DisplayProfile NormalizeProfile(DisplayProfile profile)
+    {
+        profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "Профиль" : profile.Name.Trim()[..Math.Min(64, profile.Name.Trim().Length)];
+        profile.Saturation = Math.Clamp(profile.Saturation, 0, 220);
+        profile.Vibrance = Math.Clamp(profile.Vibrance, 0, 100);
+        profile.Brightness = Math.Clamp(profile.Brightness, -50, 50);
+        profile.Contrast = Math.Clamp(profile.Contrast, 50, 150);
+        profile.Gamma = Math.Clamp(profile.Gamma, 50, 200);
+        profile.Temperature = Math.Clamp(profile.Temperature, 3000, 10000);
+        profile.Shadows = Math.Clamp(profile.Shadows, 0, 100);
+        return profile;
+    }
 
-	public AppSettings Load()
-	{
-		try
-		{
-			if (File.Exists(SettingsPath))
-			{
-				AppSettings appSettings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), JsonOptions);
-				if (appSettings != null)
-				{
-					AppSettings appSettings2 = appSettings;
-					if (appSettings2.Profiles == null)
-					{
-						List<DisplayProfile> list = (appSettings2.Profiles = new List<DisplayProfile>());
-					}
-					foreach (DisplayProfile builtIn in Defaults.CreateProfiles())
-					{
-						if (!appSettings.Profiles.Any((DisplayProfile x) => x.Name.Equals(builtIn.Name, StringComparison.OrdinalIgnoreCase)))
-						{
-							appSettings.Profiles.Add(builtIn);
-						}
-					}
-					appSettings2 = appSettings;
-					if (appSettings2.Games == null)
-					{
-						List<GameBinding> list3 = (appSettings2.Games = new List<GameBinding>());
-					}
-					foreach (GameBinding builtIn2 in Defaults.CreateGames())
-					{
-						if (!appSettings.Games.Any((GameBinding x) => x.ProcessName.Equals(builtIn2.ProcessName, StringComparison.OrdinalIgnoreCase)))
-						{
-							appSettings.Games.Add(builtIn2);
-						}
-					}
-					appSettings2 = appSettings;
-					if (appSettings2.Current == null)
-					{
-						DisplayProfile displayProfile = (appSettings2.Current = new DisplayProfile());
-					}
-					appSettings2 = appSettings;
-					if (appSettings2.Crosshair == null)
-					{
-						CrosshairSettings crosshairSettings = (appSettings2.Crosshair = new CrosshairSettings());
-					}
-					appSettings2 = appSettings;
-					if (appSettings2.Tweaks == null)
-					{
-						appSettings2.Tweaks = new WindowsTweakPreferences();
-					}
-					WindowsTweaksService.InitializePreferences(appSettings2.Tweaks, migrateLegacy: true);
-					appSettings2 = appSettings;
-					if (appSettings2.Overclock == null)
-					{
-						appSettings2.Overclock = new OverclockPreferences();
-					}
-					appSettings2 = appSettings;
-					if (appSettings2.MonitorProfiles == null)
-					{
-						Dictionary<string, DisplayProfile> dictionary = (appSettings2.MonitorProfiles = new Dictionary<string, DisplayProfile>());
-					}
-					return appSettings;
-				}
-			}
-		}
-		catch (Exception exception)
-		{
-			AppLogService.Error("Settings could not be loaded; safe defaults will be used.", exception);
-			BackupUnreadableSettings();
-		}
-		AppSettings defaults = new AppSettings();
-		WindowsTweaksService.InitializePreferences(defaults.Tweaks, migrateLegacy: false);
-		return defaults;
-	}
+    public static AppSettings Normalize(AppSettings settings)
+    {
+        if (settings.SchemaVersion < 2)
+        {
+            settings.ApplyProfileOnStartup = settings.EffectsEnabled;
+            // Legacy learned profiles are not tied to verified hardware.
+            if (settings.Overclock != null)
+            {
+                settings.Overclock.ApplyCpuProfileOnStart = false;
+                settings.Overclock.ApplyLearnedGpuOnStart = false;
+            }
+        }
+        settings.SchemaVersion = 2;
+        settings.Profiles = (settings.Profiles ?? new()).Where(p => p != null)
+            .Select(NormalizeProfile).GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+        foreach (DisplayProfile profile in Defaults.CreateProfiles())
+            if (!settings.Profiles.Any(p => p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase)))
+                settings.Profiles.Add(profile);
+        settings.Current = NormalizeProfile(settings.Current ?? new());
+        if (!settings.Profiles.Any(p => p.Name.Equals(settings.SelectedProfileName, StringComparison.OrdinalIgnoreCase)))
+            settings.SelectedProfileName = settings.Current.Name;
+        settings.Games = (settings.Games ?? new()).Where(g => g != null && !string.IsNullOrWhiteSpace(g.ProcessName))
+            .Select(g => { g.ProcessName = Path.GetFileName(g.ProcessName.Trim()); if (g.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) g.ProcessName = g.ProcessName[..^4]; return g; })
+            .Where(g => g.ProcessName.Length <= 128 && g.ProcessName.IndexOfAny(new[] { '\\', '/', '"', '\r', '\n' }) < 0)
+            .GroupBy(g => g.ProcessName, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+        foreach (GameBinding game in settings.Games)
+            if (!settings.Profiles.Any(p => p.Name.Equals(game.ProfileName, StringComparison.OrdinalIgnoreCase)))
+                game.ProfileName = settings.SelectedProfileName;
+        settings.MonitorProfiles = (settings.MonitorProfiles ?? new()).Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value != null)
+            .GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(p => p.Key, p => NormalizeProfile(p.First().Value), StringComparer.OrdinalIgnoreCase);
+        settings.ManualMonitorProfiles = (settings.ManualMonitorProfiles ?? new()).Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value != null)
+            .GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(p => p.Key, p => NormalizeProfile(p.First().Value), StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in settings.MonitorProfiles)
+            if (!settings.ManualMonitorProfiles.ContainsKey(pair.Key)) settings.ManualMonitorProfiles[pair.Key] = pair.Value.Clone();
+        settings.Crosshair ??= new();
+        settings.Crosshair.Size = Math.Clamp(settings.Crosshair.Size, 1, 40);
+        settings.Crosshair.Gap = Math.Clamp(settings.Crosshair.Gap, 0, 40);
+        settings.Crosshair.Thickness = Math.Clamp(settings.Crosshair.Thickness, 1, 10);
+        settings.Crosshair.Outline = Math.Clamp(settings.Crosshair.Outline, 0, 10);
+        if (!Enum.IsDefined(settings.Crosshair.Shape)) settings.Crosshair.Shape = CrosshairShape.Cross;
+        settings.Tweaks ??= new();
+        WindowsTweaksService.InitializePreferences(settings.Tweaks, true);
+        settings.Tweaks.EnabledTweakIds = (settings.Tweaks.EnabledTweakIds ?? new()).Where(id => id != null)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        settings.Overclock ??= new();
+        settings.Overclock.CpuProfileId ??= "stock";
+        settings.Overclock.CpuDeviceId ??= string.Empty;
+        settings.Overclock.GpuDeviceId ??= string.Empty;
+        settings.Overclock.CpuBackendId ??= "none";
+        if (!double.IsFinite(settings.Overclock.CpuPl1Watts) || !double.IsFinite(settings.Overclock.CpuPl2Watts)
+            || settings.Overclock.CpuPl1Watts <= 0 || settings.Overclock.CpuPl2Watts < settings.Overclock.CpuPl1Watts
+            || settings.Overclock.CpuPl2Watts > 1000 || string.IsNullOrEmpty(settings.Overclock.CpuDeviceId))
+            settings.Overclock.ApplyCpuProfileOnStart = false;
+        if (string.IsNullOrWhiteSpace(settings.Overclock.GpuDeviceId) || settings.Overclock.LearnedGpuCoreOffsetMhz is < -2000 or > 2000 || settings.Overclock.LearnedGpuCoreOffsetKhz is < -2000000 or > 2000000)
+            settings.Overclock.ApplyLearnedGpuOnStart = false;
+        settings.SelectedMonitorDeviceName ??= string.Empty;
+        return settings;
+    }
 
-	public void Save(AppSettings settings)
-	{
-		Directory.CreateDirectory(DirectoryPath);
-		string text = SettingsPath + ".tmp";
-		try
-		{
-			File.WriteAllText(text, JsonSerializer.Serialize(settings, JsonOptions));
-			File.Move(text, SettingsPath, overwrite: true);
-		}
-		finally
-		{
-			try { File.Delete(text); } catch { }
-		}
-	}
+    public void Save(AppSettings settings)
+    {
+        lock (_gate)
+        {
+            AppSettings copy = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.SerializeToUtf8Bytes(settings, Options), Options)!;
+            AtomicFile.Write(SettingsPath, JsonSerializer.SerializeToUtf8Bytes(Normalize(copy), Options));
+        }
+    }
 
-	private void BackupUnreadableSettings()
-	{
-		try
-		{
-			if (!File.Exists(SettingsPath))
-				return;
-			string backup = Path.Combine(DirectoryPath, $"settings.corrupt-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
-			File.Copy(SettingsPath, backup, overwrite: false);
-			AppLogService.Warning("Unreadable settings were preserved at " + backup);
-		}
-		catch
-		{
-		}
-	}
+    public void ExportProfiles(string path, IEnumerable<DisplayProfile> profiles) =>
+        AtomicFile.Write(path, JsonSerializer.SerializeToUtf8Bytes(profiles.Select(p => NormalizeProfile(p.Clone())), Options));
 
-	public void ExportProfiles(string path, IEnumerable<DisplayProfile> profiles)
-	{
-		File.WriteAllText(path, JsonSerializer.Serialize(profiles, JsonOptions));
-	}
-
-	public List<DisplayProfile> ImportProfiles(string path)
-	{
-		return JsonSerializer.Deserialize<List<DisplayProfile>>(File.ReadAllText(path), JsonOptions) ?? new List<DisplayProfile>();
-	}
+    public List<DisplayProfile> ImportProfiles(string path)
+    {
+        if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("Файл профилей превышает 1 МиБ.");
+        List<DisplayProfile> profiles = JsonSerializer.Deserialize<List<DisplayProfile>>(File.ReadAllText(path), Options)
+            ?? throw new InvalidDataException("Файл не содержит список профилей.");
+        if (profiles.Any(p => p == null || string.IsNullOrWhiteSpace(p.Name))) throw new InvalidDataException("Есть пустой профиль или название.");
+        if (profiles.Any(p => p.Name.Trim().Length > 64 || p.Saturation is < 0 or > 220 || p.Vibrance is < 0 or > 100
+            || p.Brightness is < -50 or > 50 || p.Contrast is < 50 or > 150 || p.Gamma is < 50 or > 200
+            || p.Temperature is < 3000 or > 10000 || p.Shadows is < 0 or > 100))
+            throw new InvalidDataException("Профиль содержит значения вне поддерживаемого диапазона.");
+        if (profiles.Count > 100) throw new InvalidDataException("Разрешено не больше 100 профилей за импорт.");
+        return profiles.Select(NormalizeProfile).GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+    }
 }

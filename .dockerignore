@@ -1,0 +1,10 @@
+.git
+**/bin
+**/obj
+server-data
+**/server-data
+**/*.key
+**/*.pfx
+.env
+release-*
+artifacts

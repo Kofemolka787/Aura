@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using ColorForge.Models;
 using Microsoft.Win32;
@@ -11,10 +12,13 @@ namespace ColorForge.Services;
 
 public sealed class SmartAuditService
 {
-    public Task<IReadOnlyList<AuditItem>> RunAsync(HardwareSnapshot snapshot, DisplayMode? displayMode)
+    private readonly IExternalToolRunner _runner;
+    public SmartAuditService(IExternalToolRunner? runner = null) => _runner = runner ?? new ExternalToolRunner();
+    public Task<IReadOnlyList<AuditItem>> RunAsync(HardwareSnapshot snapshot, DisplayMode? displayMode, CancellationToken token = default)
     {
-        return Task.Run<IReadOnlyList<AuditItem>>(() =>
+        return Task.Run<IReadOnlyList<AuditItem>>(async () =>
         {
+            token.ThrowIfCancellationRequested();
             List<AuditItem> items = new List<AuditItem>();
 
             Version os = Environment.OSVersion.Version;
@@ -22,7 +26,7 @@ public sealed class SmartAuditService
             {
                 Title = "Windows",
                 Detail = $"Windows {os.Major}.{os.Minor} · сборка {os.Build}",
-                Severity = os.Build >= 22000 ? AuditSeverity.Good : AuditSeverity.Caution
+                Severity = os.Build >= 17763 ? AuditSeverity.Good : AuditSeverity.Caution
             });
 
             MEMORYSTATUSEX memory = new MEMORYSTATUSEX();
@@ -64,8 +68,8 @@ public sealed class SmartAuditService
             items.Add(new AuditItem
             {
                 Title = "Game DVR",
-                Detail = gameDvr == 0 ? "Фоновая запись отключена" : "Фоновая запись может создавать лишнюю нагрузку",
-                Severity = gameDvr == 0 ? AuditSeverity.Good : AuditSeverity.Caution
+                Detail = gameDvr == 0 ? "Фоновая запись отключена" : gameDvr == null ? "Значение не прочитано; состояние не подтверждено" : "Фоновая запись может создавать лишнюю нагрузку",
+                Severity = gameDvr == 0 ? AuditSeverity.Good : gameDvr == null ? AuditSeverity.Info : AuditSeverity.Caution
             });
 
             int? hags = ReadDword(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\GraphicsDrivers", "HwSchMode");
@@ -80,12 +84,13 @@ public sealed class SmartAuditService
             items.Add(new AuditItem
             {
                 Title = "VBS / изоляция ядра",
-                Detail = vbs ? "Защита активна; AURA не отключает её автоматически" : "Не обнаружено как активное",
+                Detail = vbs ? "VBS включена в конфигурации; фактический запуск здесь не проверяется" : "VBS не обнаружена в проверенной конфигурации",
                 Severity = AuditSeverity.Info
             });
 
-            bool pendingRestart = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") != null
-                                  || Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager")?.GetValue("PendingFileRenameOperations") != null;
+            using RegistryKey? restartKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
+            using RegistryKey? sessionManager = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager");
+            bool pendingRestart = restartKey != null || sessionManager?.GetValue("PendingFileRenameOperations") != null;
             items.Add(new AuditItem
             {
                 Title = "Перезагрузка Windows",
@@ -93,7 +98,7 @@ public sealed class SmartAuditService
                 Severity = pendingRestart ? AuditSeverity.Caution : AuditSeverity.Good
             });
 
-            string plan = ReadPowerPlan();
+            string plan = await ReadPowerPlanAsync(token).ConfigureAwait(false);
             items.Add(new AuditItem
             {
                 Title = "Схема питания",
@@ -105,7 +110,7 @@ public sealed class SmartAuditService
             });
 
             return items;
-        });
+        }, token);
     }
 
     private static void AddThermal(List<AuditItem> items, string title, double? value, double caution, double critical)
@@ -135,24 +140,17 @@ public sealed class SmartAuditService
         }
     }
 
-    private static string ReadPowerPlan()
+    private async Task<string> ReadPowerPlanAsync(CancellationToken token)
     {
         try
         {
-            ProcessStartInfo start = new ProcessStartInfo("powercfg.exe", "/getactivescheme")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true
-            };
-            using Process process = Process.Start(start)!;
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit(3000);
-            return output.Trim();
+            var result = await _runner.RunAsync(Path.Combine(Environment.SystemDirectory, "powercfg.exe"), new[] { "/getactivescheme" }, TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+            return result.ExitCode == 0 ? result.Output.Trim() : "Не подтверждено: " + result.Error.Trim();
         }
-        catch
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception)
         {
-            return string.Empty;
+            return "Не подтверждено: " + exception.Message;
         }
     }
 

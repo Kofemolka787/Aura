@@ -183,7 +183,7 @@
 
                 <Button x:Name="LoginButton" Style="{StaticResource PrimaryButton}" Content="Войти в аккаунт" Margin="0,18,0,0" Height="46" IsDefault="True" Click="Login_Click" />
 
-                <Border Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,15,0,0">
+                <Border x:Name="DemoLoginPanel" Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,15,0,0">
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition />
@@ -235,7 +235,7 @@
                 <Button x:Name="ActivateButton" Style="{StaticResource PrimaryButton}" Content="Активировать на этом ПК" Margin="0,18,0,0" Height="46" IsDefault="True" Click="Activate_Click" />
                 <Button Style="{StaticResource SecondaryButton}" Content="←  Вернуться к входу" Margin="0,9,0,0" Height="40" Click="BackToLogin_Click" />
 
-                <Border Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,14,0,0">
+                <Border x:Name="DemoLicensePanel" Background="#14121A" BorderBrush="#302A38" BorderThickness="1" CornerRadius="11" Padding="12" Margin="0,14,0,0">
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition />

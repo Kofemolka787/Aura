@@ -13,15 +13,18 @@ using ColorForge.Models;
 namespace ColorForge.Services;
 
 public sealed record BenchmarkProgress(int Percent, string Message);
-
 public sealed class BenchmarkService
 {
     private const string PresentMonHash = "9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191";
-
-    public string OutputDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AURA",
-        "Benchmarks");
+    private readonly IExternalToolRunner _runner;
+    private readonly Func<string> _toolProvider;
+    public string OutputDirectory { get; }
+    public BenchmarkService(IExternalToolRunner? runner = null, string? directory = null, Func<string>? toolProvider = null)
+    {
+        _runner = runner ?? new ExternalToolRunner();
+        _toolProvider = toolProvider ?? (() => EmbeddedToolExtractor.Extract("PresentMon-2.5.1-x64.exe", "PresentMon-2.5.1-x64.exe", PresentMonHash));
+        OutputDirectory = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AURA", "Benchmarks");
+    }
 
     public IReadOnlyList<string> GetCandidateProcesses()
     {
@@ -49,119 +52,108 @@ public sealed class BenchmarkService
             .ToArray();
     }
 
-    public async Task<BenchmarkResult> RunAsync(
-        string processName,
-        int durationSeconds,
-        IProgress<BenchmarkProgress>? progress,
-        CancellationToken cancellationToken)
+
+    public async Task<BenchmarkResult> RunAsync(string processName, int durationSeconds, IProgress<BenchmarkProgress>? progress, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(processName))
-            throw new ArgumentException("Выбери запущенную игру.", nameof(processName));
+        if (string.IsNullOrWhiteSpace(processName)) throw new ArgumentException("Выбери запущенную игру.", nameof(processName));
         durationSeconds = Math.Clamp(durationSeconds, 10, 180);
-
-        string tool = EmbeddedToolExtractor.Extract(
-            "PresentMon-2.5.1-x64.exe",
-            "PresentMon-2.5.1-x64.exe",
-            PresentMonHash);
+        string tool = _toolProvider();
         Directory.CreateDirectory(OutputDirectory);
-        string safeName = Path.GetFileNameWithoutExtension(processName).Replace(' ', '-');
-        string csv = Path.Combine(OutputDirectory, $"{safeName}-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-
-        ProcessStartInfo startInfo = new ProcessStartInfo
+        string csv = Path.Combine(OutputDirectory, "capture-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N") + ".csv");
+        string session = "AURA-" + Guid.NewGuid().ToString("N");
+        DateTime startedAt = DateTime.UtcNow;
+        Task<ToolResult> capture = _runner.RunAsync(tool,
+            new[] { "--process_name", processName, "--output_file", csv, "--timed", durationSeconds.ToString(CultureInfo.InvariantCulture),
+                "--terminate_after_timed", "--no_console_stats", "--v2_metrics", "--session_name", session },
+            TimeSpan.FromSeconds(durationSeconds + 30), token, Path.GetDirectoryName(tool));
+        Stopwatch time = Stopwatch.StartNew();
+        while (!capture.IsCompleted)
         {
-            FileName = tool,
-            Arguments = $"--process_name \"{processName}\" --output_file \"{csv}\" --timed {durationSeconds} --terminate_after_timed --stop_existing_session",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = Path.GetDirectoryName(tool)!
-        };
-
-        using Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Не удалось запустить PresentMon.");
-        using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            progress?.Report(new(Math.Clamp((int)(time.Elapsed.TotalSeconds / durationSeconds * 100), 0, 99),
+                $"Запись кадров · {Math.Max(0, durationSeconds - (int)time.Elapsed.TotalSeconds)} сек."));
+            await Task.WhenAny(capture, Task.Delay(250)).ConfigureAwait(false);
+        }
+        ToolResult result;
+        try {
+            result = await capture.ConfigureAwait(false);
+            if (result.ExitCode != 0) throw new InvalidOperationException("PresentMon: " + TrimMessage(result.Error + " " + result.Output));
+        }
+        catch
         {
             try
             {
-                if (!process.HasExited)
-                    process.Kill(true);
+                await _runner.RunAsync(tool, new[] { "--session_name", session, "--terminate_existing_session" },
+                    TimeSpan.FromSeconds(10), CancellationToken.None, Path.GetDirectoryName(tool)).ConfigureAwait(false);
             }
-            catch
-            {
-            }
-        });
-
-        Stopwatch timer = Stopwatch.StartNew();
-        while (!process.HasExited)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            int percent = Math.Clamp((int)(timer.Elapsed.TotalSeconds / durationSeconds * 100), 0, 99);
-            progress?.Report(new BenchmarkProgress(percent, $"Запись кадров · {Math.Max(0, durationSeconds - (int)timer.Elapsed.TotalSeconds)} сек."));
-            await Task.Delay(500, cancellationToken);
+            catch (Exception cleanup) { AppLogService.Error("Owned PresentMon session cleanup failed.", cleanup); }
+            throw;
         }
-
-        string stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
-        if (process.ExitCode != 0 && !File.Exists(csv))
-            throw new InvalidOperationException("PresentMon завершился с ошибкой: " + TrimMessage(stderr));
-
-        progress?.Report(new BenchmarkProgress(100, "Анализ фреймтаймов…"));
-        BenchmarkResult result = Parse(csv, processName);
-        string summaryPath = Path.ChangeExtension(csv, ".json");
-        await File.WriteAllTextAsync(summaryPath, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }), cancellationToken);
-        return result;
+        if (!File.Exists(csv)) throw new InvalidDataException("PresentMon не создал CSV.");
+        progress?.Report(new(100, "Анализ отдельного потока кадров"));
+        BenchmarkResult benchmark = Parse(csv, processName, recordedAt: startedAt);
+        AtomicFile.Write(Path.ChangeExtension(csv, ".json"), JsonSerializer.SerializeToUtf8Bytes(benchmark));
+        return benchmark;
     }
 
-    internal static BenchmarkResult Parse(string csvPath, string processName)
+    internal static BenchmarkResult Parse(string csvPath, string processName, string? selectedStream = null, DateTime? recordedAt = null)
     {
-        using StreamReader reader = new StreamReader(csvPath, Encoding.UTF8, true);
-        string? headerLine = reader.ReadLine();
-        if (headerLine == null)
-            throw new InvalidDataException("PresentMon не записал кадры.");
-
-        string[] headers = ParseCsvLine(headerLine).ToArray();
-        int frameIndex = FindColumn(headers, "MsBetweenPresents", "MsBetweenDisplayChange", "DisplayedTime");
-        if (frameIndex < 0)
-            throw new InvalidDataException("В отчёте PresentMon нет столбца фреймтайма.");
-
-        List<double> frameTimes = new List<double>();
+        if (new FileInfo(csvPath).Length > 128 * 1024 * 1024) throw new InvalidDataException("CSV превышает 128 МиБ.");
+        using StreamReader reader = new(csvPath, Encoding.UTF8, true);
+        string[] headers = ParseCsvLine(reader.ReadLine() ?? throw new InvalidDataException("Пустой CSV.")).ToArray();
+        int frame = FindColumn(headers, "MsBetweenPresents", "FrameTime", "CPUFrameTime");
+        int cpuBusy = FindColumn(headers, "MsCPUBusy", "CPUBusy");
+        int cpuWait = FindColumn(headers, "MsCPUWait", "CPUWait");
+        if (frame < 0 && (cpuBusy < 0 || cpuWait < 0))
+            throw new InvalidDataException("Нет поддерживаемой метрики интервала кадров приложения. DisplayedTime отдельно не подменяет FPS приложения.");
+        int swap = FindColumn(headers, "SwapChainAddress"), pid = FindColumn(headers, "ProcessID"), app = FindColumn(headers, "Application");
+        int timestamp = FindColumn(headers, "CPUStartTime", "CPUStartQPCTime", "TimeInSeconds"), dropped = FindColumn(headers, "Dropped");
+        int displayed = FindColumn(headers, "DisplayedTime"), frameType = FindColumn(headers, "FrameType");
+        bool timestampSeconds = timestamp >= 0 && headers[timestamp].Equals("TimeInSeconds", StringComparison.OrdinalIgnoreCase);
+        Dictionary<string, List<Frame>> streams = new(StringComparer.OrdinalIgnoreCase);
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
-            IReadOnlyList<string> fields = ParseCsvLine(line);
-            if (frameIndex >= fields.Count)
-                continue;
-            if (double.TryParse(fields[frameIndex], NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
-                && value > 0.05 && value < 5000)
-            {
-                frameTimes.Add(value);
-            }
+            if (line.Length > 1024 * 1024) throw new InvalidDataException("Слишком длинная строка CSV.");
+            var values = ParseCsvLine(line);
+            string Cell(int index) => index >= 0 && index < values.Count ? values[index] : string.Empty;
+            if (app >= 0 && !Path.GetFileName(Cell(app)).Equals(Path.GetFileName(processName), StringComparison.OrdinalIgnoreCase)) continue;
+            string key = (Cell(pid).Length == 0 ? "PID ?" : Cell(pid)) + " / " + (Cell(swap).Length == 0 ? "один поток" : Cell(swap));
+            if (!streams.TryGetValue(key, out List<Frame>? frames)) streams[key] = frames = new();
+            double? Number(int index) => double.TryParse(Cell(index), NumberStyles.Float, CultureInfo.InvariantCulture, out double number) && double.IsFinite(number) ? number : null;
+            double? interval = frame >= 0 ? Number(frame) : Number(cpuBusy) + Number(cpuWait);
+            double? stamp = Number(timestamp);
+            if (timestampSeconds && stamp.HasValue) stamp *= 1000;
+            bool generated = frameType >= 0 && !string.IsNullOrWhiteSpace(Cell(frameType)) && !Cell(frameType).Equals("Application", StringComparison.OrdinalIgnoreCase);
+            bool notDisplayed = Cell(dropped) is "1" or "True" or "true" || (displayed >= 0 && !Number(displayed).HasValue);
+            frames.Add(new(interval, stamp, generated, notDisplayed));
         }
-
-        if (frameTimes.Count < 30)
-            throw new InvalidDataException("Слишком мало кадров. Убедись, что игра запущена и выбрана верно.");
-
-        frameTimes.Sort();
-        double mean = frameTimes.Average();
-        double median = Percentile(frameTimes, 0.50);
-        int worstCount = Math.Max(1, frameTimes.Count / 100);
-        double worstAverage = frameTimes.Skip(frameTimes.Count - worstCount).Average();
-        double stutterThreshold = Math.Max(33.3, median * 2.0);
-
-        return new BenchmarkResult
+        var choices = streams.Select(pair => new FrameStreamChoice { Id = pair.Key, FrameCount = pair.Value.Count(x => !x.Generated && x.Interval is > 0 and <= 300000) })
+            .OrderByDescending(x => x.FrameCount).ThenBy(x => x.Id, StringComparer.OrdinalIgnoreCase).ToList();
+        string chosen = selectedStream ?? choices.FirstOrDefault()?.Id ?? throw new InvalidDataException("Нет кадров выбранного процесса.");
+        if (!streams.TryGetValue(chosen, out List<Frame>? rows)) throw new InvalidDataException("Выбранный поток отсутствует.");
+        Frame[] valid = rows.Where(x => !x.Generated && x.Interval is > 0 and <= 300000).ToArray();
+        if (valid.Length < 30) throw new InvalidDataException("В выбранном потоке меньше 30 кадров.");
+        double[] ordered = valid.Select(x => x.Interval!.Value).ToArray();
+        double[] sorted = ordered.Order().ToArray();
+        double mean = sorted.Average(), median = Percentile(sorted, 0.5);
+        double duration = ordered.Sum();
+        if (valid.All(x => x.Timestamp.HasValue))
+            duration = valid.Max(x => x.Timestamp!.Value + x.Interval!.Value) - valid.Min(x => x.Timestamp!.Value);
+        if (!double.IsFinite(duration) || duration <= 0) throw new InvalidDataException("Некорректный интервал записи.");
+        return new()
         {
-            ProcessName = processName,
-            FrameCount = frameTimes.Count,
-            DurationSeconds = frameTimes.Sum() / 1000.0,
-            AverageFps = 1000.0 / mean,
-            OnePercentLowFps = 1000.0 / worstAverage,
-            P95FrameTimeMs = Percentile(frameTimes, 0.95),
-            P99FrameTimeMs = Percentile(frameTimes, 0.99),
-            StutterCount = frameTimes.Count(x => x > stutterThreshold),
-            CsvPath = csvPath
+            ProcessName = processName, RecordedAt = recordedAt ?? File.GetCreationTimeUtc(csvPath), StreamId = chosen, Streams = choices, FrameCount = ordered.Length,
+            DurationSeconds = duration / 1000, AverageFps = 1000 / mean,
+            OnePercentLowFps = 1000 / sorted.TakeLast(Math.Max(1, (int)Math.Ceiling(sorted.Length * 0.01))).Average(),
+            P95FrameTimeMs = Percentile(sorted, 0.95), P99FrameTimeMs = Percentile(sorted, 0.99),
+            StutterCount = sorted.Count(x => x > Math.Max(33.3, median * 2)),
+            DroppedFrameCount = rows.Count(x => x.NotDisplayed), GeneratedFrameCount = rows.Count(x => x.Generated),
+            InvalidFrameCount = rows.Count(x => !x.Generated && !(x.Interval is > 0 and <= 300000)),
+            FrameTimesMs = ordered, CsvPath = csvPath,
+            Metric = frame >= 0 ? headers[frame] : headers[cpuBusy] + "+" + headers[cpuWait]
         };
     }
-
+    private sealed record Frame(double? Interval, double? Timestamp, bool Generated, bool NotDisplayed);
     private static int FindColumn(IReadOnlyList<string> headers, params string[] names)
     {
         foreach (string name in names)

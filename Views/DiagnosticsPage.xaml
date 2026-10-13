@@ -40,6 +40,7 @@
 
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="27,0,20,24">
     <StackPanel>
+      <TextBlock x:Name="TelemetrySourceText" Text="Ожидание датчиков" Foreground="#817888" FontSize="9" Margin="0,0,0,8"/>
       <UniformGrid Columns="4" Margin="0,0,0,14">
         <Border Style="{StaticResource MetricCard}">
           <StackPanel><TextBlock Text="CPU" Foreground="#A991BC" FontSize="9" FontWeight="Bold"/><TextBlock x:Name="CpuTemperatureText" Text="— °C" FontSize="22" FontWeight="Bold" Margin="0,5,0,0"/><TextBlock x:Name="CpuDetailText" Text="Ожидание датчиков" Foreground="#817888" FontSize="9" TextTrimming="CharacterEllipsis"/></StackPanel>
@@ -105,6 +106,8 @@
             </StackPanel>
             <ProgressBar x:Name="BenchmarkProgress" Height="4" Minimum="0" Maximum="100" Margin="0,13,0,0" />
             <TextBlock x:Name="BenchmarkStatusText" Text="Готово к тесту" Foreground="#8E8498" FontSize="9" Margin="0,6,0,0" />
+            <TextBlock Text="Поток кадров · по умолчанию больше всего кадров" Foreground="#91869B" FontSize="9" Margin="0,10,0,4"/>
+            <ComboBox x:Name="FrameStreamCombo" SelectionChanged="FrameStream_Changed"/>
           </StackPanel>
 
           <Border Grid.Column="2" Background="#0D0C12" BorderBrush="#362E3F" BorderThickness="1" CornerRadius="15" Padding="17">
@@ -125,6 +128,25 @@
             </Grid>
           </Border>
         </Grid>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}" Padding="18">
+        <StackPanel>
+          <TextBlock Text="ФРЕЙМТАЙМ И ИСТОРИЯ" FontSize="10" FontWeight="Bold" Foreground="#C493ED"/>
+          <Canvas x:Name="FrameGraph" Height="125" Background="#0D0C12" Margin="0,10,0,0" ClipToBounds="True" SizeChanged="FrameGraph_SizeChanged">
+            <Polyline x:Name="FrameLine" Stroke="#63E2A0" StrokeThickness="1.4"/>
+          </Canvas>
+          <TextBlock x:Name="FrameGraphScale" Foreground="#91869B" FontSize="9" Margin="0,5,0,8"/>
+          <ComboBox x:Name="HistoryCombo" DisplayMemberPath="HistoryLabel" SelectionChanged="History_Changed"/>
+          <TextBlock Text="Сравнение: сначала замер до изменений, затем после" Foreground="#91869B" FontSize="9" Margin="0,10,0,4"/>
+          <ComboBox x:Name="CompareBeforeCombo" DisplayMemberPath="HistoryLabel"/>
+          <ComboBox x:Name="CompareAfterCombo" DisplayMemberPath="HistoryLabel" Margin="0,6,0,0"/>
+          <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Style="{StaticResource SecondaryButton}" Content="Сравнить" Click="Compare_Click"/>
+            <Button Style="{StaticResource SecondaryButton}" Content="Экспорт отчёта" Margin="8,0,0,0" Click="ExportReport_Click"/>
+          </StackPanel>
+          <TextBlock x:Name="ComparisonText" Foreground="#B9A6CC" TextWrapping="Wrap" FontSize="10" Margin="0,7,0,0"/>
+        </StackPanel>
       </Border>
 
       <Grid>

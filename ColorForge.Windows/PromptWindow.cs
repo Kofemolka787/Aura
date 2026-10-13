@@ -55,7 +55,7 @@ public sealed class PromptWindow : Window
 		};
 		Button element = new Button
 		{
-			Content = "Cancel",
+            Content = "Отмена",
 			Width = 96.0,
 			Height = 36.0,
 			Margin = new Thickness(0.0, 0.0, 8.0, 0.0),
@@ -63,7 +63,7 @@ public sealed class PromptWindow : Window
 		};
 		Button button = new Button
 		{
-			Content = "Save",
+            Content = "Сохранить",
 			Width = 110.0,
 			Height = 36.0,
 			IsDefault = true

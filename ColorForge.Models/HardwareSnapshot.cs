@@ -4,6 +4,9 @@ namespace ColorForge.Models;
 
 public sealed class HardwareSnapshot
 {
+    public bool TelemetryValid { get; init; } = true;
+    public string TelemetryError { get; init; } = string.Empty;
+    public string GpuDeviceId { get; init; } = string.Empty;
     public DateTime TimestampUtc { get; init; } = DateTime.UtcNow;
 
     public string CpuName { get; init; } = "Процессор не определён";

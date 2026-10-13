@@ -1,0 +1,60 @@
+name: Verify AURA
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - name: Restore locked dependencies
+        run: dotnet restore Aura.sln --locked-mode --artifacts-path artifacts
+      - name: Build Windows application
+        run: dotnet build Aura.csproj -c Release --no-restore --artifacts-path artifacts -maxcpucount:2
+      - name: Catalog smoke
+        run: |
+          dotnet build tests/Aura.CatalogSmoke/Aura.CatalogSmoke.csproj -c Release --no-restore --artifacts-path artifacts
+          dotnet artifacts/bin/Aura.CatalogSmoke/release/Aura.CatalogSmoke.dll
+      - name: Regression tests
+        run: dotnet test tests/Aura.RegressionTests/Aura.RegressionTests.csproj -c Release --no-restore --artifacts-path artifacts -maxcpucount:2 --logger "trx;LogFileName=regression.trx" --results-directory artifacts/tests
+      - name: Authentication integration tests
+        run: dotnet test tests/Aura.AuthTests/Aura.AuthTests.csproj -c Release --no-restore --artifacts-path artifacts -maxcpucount:2 --logger "trx;LogFileName=auth.trx" --results-directory artifacts/tests
+      - name: PowerShell fixtures
+        shell: pwsh
+        run: ./tests/Aura.PowerShellSmoke/Smoke.ps1
+      - name: Windows PowerShell 5.1 fixtures
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/Aura.PowerShellSmoke/Smoke.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: artifacts/tests
+  development-release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - shell: pwsh
+        run: ./scripts/build-release.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aura-v0.11-unsigned-development
+          path: release-v0.11

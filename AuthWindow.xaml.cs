@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -15,6 +16,7 @@ public partial class AuthWindow : Window
 	private string? _loginToken;
 
 	private bool _busy;
+    private readonly CancellationTokenSource _lifetime = new();
 
 	public event Action<AuthSession>? AuthenticationSucceeded;
 
@@ -22,6 +24,10 @@ public partial class AuthWindow : Window
 	{
 		_authService = authService;
 		InitializeComponent();
+        Closed += (_, _) => _lifetime.Cancel();
+        bool demo = authService is DemoAuthService;
+        DemoLoginPanel.Visibility = DemoLicensePanel.Visibility = demo ? Visibility.Visible : Visibility.Collapsed;
+        if (demo) ShowLoginMessage("ПРОТОТИП: тестовая активация, коммерческий сервер не подключён.");
 		DeviceIdText.Text = "УСТРОЙСТВО · " + DeviceIdentityService.GetShortDeviceId();
 		if (!string.IsNullOrWhiteSpace(startupMessage))
 		{
@@ -65,6 +71,7 @@ public partial class AuthWindow : Window
 
 	private void FillDemoKey_Click(object sender, RoutedEventArgs e)
 	{
+        if (_busy) return;
 		LicenseKeyTextBox.Text = DemoAuthService.DemoLicenseKey;
 		HideLicenseMessage();
 		LicenseKeyTextBox.Focus();
@@ -88,17 +95,20 @@ public partial class AuthWindow : Window
 		SetBusy(true, LoginButton, "Проверяем аккаунт…");
 		try
 		{
-			LoginResult result = await _authService.LoginAsync(email, password);
-			if (!result.Success || string.IsNullOrWhiteSpace(result.LoginToken))
+			LoginResult result = await _authService.LoginAsync(email, password, _lifetime.Token);
+			if (result.Success && result.Session != null) { PasswordInput.Clear(); AuthenticationSucceeded?.Invoke(result.Session); return; }
+            if (!result.Success || string.IsNullOrWhiteSpace(result.LoginToken))
 			{
 				ShowLoginMessage(result.Message);
 				return;
 			}
-			_loginToken = result.LoginToken;
+			PasswordInput.Clear();
+            _loginToken = result.LoginToken;
 			VerifiedEmailText.Text = result.Email ?? email;
 			ShowLicenseStep();
 		}
-		catch (Exception exception)
+		catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception exception)
 		{
 			AppLogService.Error("Account login failed.", exception);
 			ShowLoginMessage("Не удалось связаться с сервером: " + exception.Message);
@@ -130,7 +140,7 @@ public partial class AuthWindow : Window
 		SetBusy(true, ActivateButton, "Активируем подписку…");
 		try
 		{
-			ActivationResult result = await _authService.ActivateAsync(_loginToken, key, DeviceIdentityService.GetDeviceId());
+			ActivationResult result = await _authService.ActivateAsync(_loginToken, key, DeviceIdentityService.GetDeviceId(), _lifetime.Token);
 			if (!result.Success || result.Session == null)
 			{
 				ShowLicenseMessage(result.Message);
@@ -142,10 +152,11 @@ public partial class AuthWindow : Window
 			LicenseMessageBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(55, 116, 82));
 			LicenseMessageText.Foreground = new SolidColorBrush(Color.FromRgb(116, 232, 165));
 			LicenseMessageText.Text = result.Message;
-			await Task.Delay(360);
+			await Task.Delay(360, _lifetime.Token);
 			AuthenticationSucceeded?.Invoke(result.Session);
 		}
-		catch (Exception exception)
+		catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception exception)
 		{
 			AppLogService.Error("License activation failed.", exception);
 			ShowLicenseMessage("Не удалось активировать ключ: " + exception.Message);
@@ -158,6 +169,7 @@ public partial class AuthWindow : Window
 
 	private void BackToLogin_Click(object sender, RoutedEventArgs e)
 	{
+        if (_busy) return;
 		ShowLoginStep(null);
 	}
 
