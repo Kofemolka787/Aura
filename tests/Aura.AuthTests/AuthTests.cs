@@ -101,7 +101,7 @@ public sealed class AuthTests
             Assert.True((await client.ValidateSessionAsync(activation.Session!)).Success);
             await db.RevokeLicenseAsync(key); Assert.False((await client.ValidateSessionAsync(activation.Session!)).Success);
             Assert.Equal(HttpStatusCode.BadRequest, (await http.PostAsJsonAsync("v1/login", new { email = (string?)null, password = Password, deviceId = Device })).StatusCode);
-        } finally { if (Directory.Exists(path)) Directory.Delete(path, true); }
+        } finally { await DeleteHttpFixtureAsync(path); }
     }
     [Fact] public async Task NetworkFailureAllowsOnlyValidSignedOfflineGrantAndHttpDenialCannotFallback()
     {
@@ -116,6 +116,15 @@ public sealed class AuthTests
         Assert.False((await offline.ValidateSessionAsync(session)).Success);
         using var denied = new ServerAuthService(new("Server", "https://localhost/", publicKey), new FailingHandler(HttpStatusCode.Unauthorized), () => Device);
         await Assert.ThrowsAsync<HttpRequestException>(() => denied.ValidateSessionAsync(session));
+    }
+    private static async Task DeleteHttpFixtureAsync(string path)
+    {
+        // TestServer shutdown and Windows file filters can release handles shortly
+        // after host disposal. Bound cleanup retries; persistent locks still fail.
+        for (int attempt = 0; attempt < 20; attempt++) {
+            try { if (Directory.Exists(path)) Directory.Delete(path, true); return; }
+            catch (IOException) when (attempt < 19) { await Task.Delay(100); }
+        }
     }
     private sealed class FailingHandler(HttpStatusCode? status = null) : HttpMessageHandler
     {
