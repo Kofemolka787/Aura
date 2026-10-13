@@ -1,4 +1,4 @@
-param([string]$TargetSid, [string]$RunId)
+﻿param([string]$TargetSid, [string]$RunId)
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'

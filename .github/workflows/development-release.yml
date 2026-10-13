@@ -1,0 +1,85 @@
+name: Downloadable development build
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build and test the development release
+        shell: pwsh
+        run: ./scripts/build-release.ps1 -OutputDirectory "$env:RUNNER_TEMP/aura-release"
+      - name: Verify Windows PowerShell 5.1 compatibility
+        shell: powershell
+        run: |
+          # The application writes its embedded script as UTF-8 with BOM.
+          # Use the same encoding when checking older source revisions.
+          $runtime = Join-Path $env:RUNNER_TEMP 'aura-runtime.ps1'
+          $source = Join-Path $PWD 'Assets/Runtime/WindowsTweaks.ps1'
+          [IO.File]::WriteAllText($runtime, [IO.File]::ReadAllText($source, [Text.Encoding]::UTF8), (New-Object Text.UTF8Encoding($true)))
+          ./tests/Aura.PowerShellSmoke/Smoke.ps1 -RuntimePath $runtime
+      - name: Package the executable, source and release evidence
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'aura-release'
+          $report = Get-Content (Join-Path $root 'release-report.json') -Raw | ConvertFrom-Json
+          $version = [version]$report.Version
+          $label = "v$($version.Major).$($version.Minor)"
+          $delivery = Join-Path $env:RUNNER_TEMP 'aura-delivery'
+          New-Item -ItemType Directory -Path $delivery | Out-Null
+          $commit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit.' }
+          git archive --format=zip --output="$root/AURA-$label-source.zip" HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot archive source.' }
+          $exe = Join-Path $delivery "AURA-$label.exe"
+          Copy-Item (Join-Path $root 'app/Aura.exe') $exe
+          $zip = Join-Path $delivery "AURA-$label-development.zip"
+          Compress-Archive -Path "$root/*" -DestinationPath $zip -CompressionLevel Optimal
+          $zipHash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $notes = @(
+            "AURA $label — Windows x64 development build.",
+            '',
+            'The ZIP includes app/Aura.exe, source code, documentation, dependency licenses and test results.',
+            "Source commit: $commit",
+            "Authentication: $($report.AuthenticationMode). Signature: $($report.Signature).",
+            'Built and tested on a Windows runner. Interactive UI and real hardware behavior still require manual Windows QA.',
+            '',
+            'SHA-256:',
+            "$($report.Sha256)  AURA-$label.exe",
+            "$zipHash  AURA-$label-development.zip"
+          )
+          $notes | Set-Content (Join-Path $delivery 'release-notes.md') -Encoding UTF8
+          "tag=$label-development" >> $env:GITHUB_OUTPUT
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+          "label=$label" >> $env:GITHUB_OUTPUT
+      - name: Publish downloadable prerelease assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          SOURCE_COMMIT: ${{ steps.package.outputs.commit }}
+          VERSION_LABEL: ${{ steps.package.outputs.label }}
+        run: |
+          $delivery = Join-Path $env:RUNNER_TEMP 'aura-delivery'
+          gh release create $env:RELEASE_TAG "$delivery/AURA-$env:VERSION_LABEL.exe" "$delivery/AURA-$env:VERSION_LABEL-development.zip" --target $env:SOURCE_COMMIT --title "AURA $env:VERSION_LABEL — development" --notes-file "$delivery/release-notes.md" --prerelease --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Prerelease publication failed.' }
