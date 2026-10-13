@@ -95,5 +95,18 @@ jobs:
           VERSION_LABEL: ${{ steps.package.outputs.label }}
         run: |
           $delivery = Join-Path $env:RUNNER_TEMP 'aura-delivery'
-          gh release create $env:RELEASE_TAG "$delivery/AURA-$env:VERSION_LABEL.exe" "$delivery/AURA-$env:VERSION_LABEL-development.zip" --target $env:SOURCE_COMMIT --title "AURA $env:VERSION_LABEL — development" --notes-file "$delivery/release-notes.md" --prerelease --latest=false
-          if ($LASTEXITCODE -ne 0) { throw 'Prerelease publication failed.' }
+          $output = gh release create $env:RELEASE_TAG "$delivery/AURA-$env:VERSION_LABEL.exe" "$delivery/AURA-$env:VERSION_LABEL-development.zip" --target $env:SOURCE_COMMIT --title "AURA $env:VERSION_LABEL — development" --notes-file "$delivery/release-notes.md" --prerelease --latest=false 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Output $_ }
+          if ($code -ne 0) {
+            $message = ($output | Out-String).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error::$message"
+            throw 'Prerelease publication failed.'
+          }
+      - name: Retain a downloadable copy if release publication fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AURA-${{ steps.package.outputs.label }}-development
+          path: ${{ runner.temp }}/aura-delivery/*
+          if-no-files-found: ignore
