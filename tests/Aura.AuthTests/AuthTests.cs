@@ -87,7 +87,7 @@ public sealed class AuthTests
     [Fact] public async Task ActualHttpApiAndMatchingClientActivateValidateAndHonorRevocation()
     {
         string path = DirectoryPath(); try {
-            using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => {
+            await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => {
                 b.UseEnvironment("Development"); b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { ["Aura:DataDirectory"] = path }));
             });
             using var http = factory.CreateClient();
