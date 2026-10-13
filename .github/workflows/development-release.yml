@@ -25,7 +25,21 @@ jobs:
           global-json-file: global.json
       - name: Build and test the development release
         shell: pwsh
-        run: ./scripts/build-release.ps1 -OutputDirectory "$env:RUNNER_TEMP/aura-release"
+        run: |
+          try {
+            ./scripts/build-release.ps1 -OutputDirectory "$env:RUNNER_TEMP/aura-release"
+          } catch {
+            # Surface test failures as annotations even when log downloads are unavailable.
+            Get-ChildItem "$env:RUNNER_TEMP/aura-release.stage-*/TestResults/*.trx" -ErrorAction SilentlyContinue | ForEach-Object {
+              [xml]$results = Get-Content $_.FullName -Raw
+              $results.TestRun.Results.UnitTestResult | Where-Object outcome -eq 'Failed' | ForEach-Object {
+                $message = "$($_.testName): $($_.Output.ErrorInfo.Message)"
+                $message = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+                Write-Output "::error::$message"
+              }
+            }
+            throw
+          }
       - name: Verify Windows PowerShell 5.1 compatibility
         shell: powershell
         run: |
