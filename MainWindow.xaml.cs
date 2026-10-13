@@ -77,6 +77,7 @@ public partial class MainWindow : Window
 	{
 		_settings = settings;
         _gameProfiles = new GameProfileController(settings);
+        _presentation = new GamePresentationSession(settings);
         _profileCatalog = new ProfileCatalogService(settings);
 		_store = store;
 		_engine = engine;
@@ -102,12 +103,13 @@ public partial class MainWindow : Window
 		CrosshairThicknessField.FieldValueChanged += CrosshairField_Changed;
 		CrosshairOutlineField.FieldValueChanged += CrosshairField_Changed;
 		CrosshairShapeCombo.ItemsSource = Enum.GetNames<CrosshairShape>();
-		GameGrid.ItemsSource = _settings.Games;
+		GameCards.ItemsSource = _settings.Games;
 		UpdateGamesSummary();
 		LoadMonitors();
 		DiagnosticsView.Initialize(_hardware, GetSelectedDisplayMode);
 		OverclockView.Initialize(_hardware, _settings, _store);
 		_crosshair = new CrosshairWindow();
+		_overlay = new PerformanceOverlayController(_hardware);
 		_crosshair.SetMonitor(_selectedMonitor?.DeviceName);
         _monitor = new ProfileMonitor();
         _monitor.UpdateBindings(_settings.Games);
@@ -121,6 +123,7 @@ public partial class MainWindow : Window
 		LoadCrosshairControls();
         RefreshProfileList();
 		LoadAppSettingsControls();
+        InitializeGaming();
 		NvidiaStatusText.Text = (_engine.NvidiaAvailable ? "NVIDIA Digital Vibrance: подключено · применяется только к выбранному монитору" : "NVIDIA не обнаружена · яркость, гамма, контраст и температура всё равно доступны");
 		NvidiaStatusText.Foreground = (_engine.NvidiaAvailable ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(98, 214, 155)) : new SolidColorBrush(System.Windows.Media.Color.FromRgb(byte.MaxValue, 143, 143)));
 		SettingsPathText.Text = _store.SettingsPath;
@@ -274,6 +277,7 @@ public partial class MainWindow : Window
 	{
 		if (!_initializing && MonitorCombo.SelectedItem is MonitorTarget monitorTarget && !monitorTarget.DeviceName.Equals(_selectedMonitor?.DeviceName, StringComparison.OrdinalIgnoreCase))
 		{
+			SuspendGameSession();
 			ReadColorControls();
 			StoreCurrentForMonitor();
 			_selectedMonitor = monitorTarget;
@@ -319,6 +323,9 @@ public partial class MainWindow : Window
 		if (!_initializing)
 		{
             ReadColorControls();
+            DisplayProfile edited = _settings.Current.Clone();
+            SuspendGameSession(_sessionMonitor?.DeviceName != _selectedMonitor?.DeviceName);
+            LoadProfileIntoControls(edited);
             _gameProfiles.ChooseManual(_selectedMonitor?.DeviceName ?? string.Empty, _settings.Current);
             _activeGame = null;
             ApplyCurrent();
@@ -356,6 +363,7 @@ public partial class MainWindow : Window
 
 	private void ApplyProfile(DisplayProfile profile, bool select)
 	{
+        if (select) SuspendGameSession();
 		LoadProfileIntoControls(profile);
 		if (select)
 		{
@@ -370,6 +378,7 @@ public partial class MainWindow : Window
 	private void ApplyCurrent()
 	{
 		StoreCurrentForMonitor();
+        UpdateOverlay();
 		if (!_settings.EffectsEnabled || (object)_selectedMonitor == null)
 		{
 			SaveSettings();
@@ -402,6 +411,7 @@ public partial class MainWindow : Window
 
 	private void Reset_Click(object sender, RoutedEventArgs e)
 	{
+        SuspendGameSession();
 		if ((object)_selectedMonitor != null)
 		{
             try { _engine.Reset(_selectedMonitor); }
@@ -458,14 +468,14 @@ public partial class MainWindow : Window
         if (ProfileCombo.SelectedItem is not DisplayProfile profile) return;
         PromptWindow prompt = new("Переименовать профиль", "Новое название", profile.Name) { Owner = this };
         if (prompt.ShowDialog() != true) return;
-        try { _profileCatalog.Rename(profile, prompt.Answer); RefreshProfileList(); GameGrid.Items.Refresh(); SaveSettings(); }
+        try { _profileCatalog.Rename(profile, prompt.Answer); RefreshProfileList(); RefreshGameCards(); SaveSettings(); }
         catch (Exception exception) { SetStatus(exception.Message, false); }
     }
     private void DeleteProfile_Click(object sender, RoutedEventArgs e)
     {
         if (ProfileCombo.SelectedItem is not DisplayProfile profile) return;
         if (System.Windows.MessageBox.Show("Удалить профиль «" + profile.Name + "»? Игровые привязки будут переведены на Natural.", "AURA", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-        try { _profileCatalog.Delete(profile); RefreshProfileList(); GameGrid.Items.Refresh(); SaveSettings(); }
+        try { _profileCatalog.Delete(profile); RefreshProfileList(); RefreshGameCards(); SaveSettings(); }
         catch (Exception exception) { SetStatus(exception.Message, false); }
     }
     private void ImportProfiles_Click(object sender, RoutedEventArgs e)
@@ -499,31 +509,30 @@ public partial class MainWindow : Window
 		if (openFileDialog.ShowDialog(this) == true)
 		{
 			string fileNameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(openFileDialog.FileName);
-			_settings.Games.Add(new GameBinding
-			{
-				ProcessName = fileNameWithoutExtension,
-				ProfileName = _settings.SelectedProfileName
-			});
-			GameGrid.Items.Refresh();
-			UpdateGamesSummary();
-			SaveSettings();
+            GameBinding? existing = _settings.Games.FirstOrDefault(x => x.ProcessName.Equals(fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
+            if (existing != null) { _selectedGame = existing; EditGame_Click(sender, e); return; }
+            GameBinding game = new() { ProcessName = fileNameWithoutExtension, ProfileName = _settings.SelectedProfileName,
+                Crosshair = _settings.Crosshair.Clone(), Overlay = _settings.Overlay.Clone() };
+            GameProfileWindow dialog = new(game, _settings, _monitors) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+            _settings.Games.Add(dialog.Result); _selectedGame = dialog.Result;
+            RefreshGameCards(); SaveSettings();
 		}
 	}
 
 	private void DeleteGame_Click(object sender, RoutedEventArgs e)
 	{
-		if (GameGrid.SelectedItem is GameBinding item)
+		if (_selectedGame is GameBinding item)
 		{
 			_settings.Games.Remove(item);
-			GameGrid.Items.Refresh();
-			UpdateGamesSummary();
+			RefreshGameCards();
 			SaveSettings();
 		}
 	}
 
 	private void ApplyNvidiaGameProfile_Click(object sender, RoutedEventArgs e)
 	{
-		if (GameGrid.SelectedItem is not GameBinding binding)
+		if (_selectedGame is not GameBinding binding)
 		{
 			SetStatus("Сначала выбери игру в таблице", ok: false);
 			return;
@@ -540,7 +549,7 @@ public partial class MainWindow : Window
 
 	private void ResetNvidiaGameProfile_Click(object sender, RoutedEventArgs e)
 	{
-		if (GameGrid.SelectedItem is not GameBinding binding)
+		if (_selectedGame is not GameBinding binding)
 		{
 			SetStatus("Сначала выбери игру в таблице", ok: false);
 			return;
@@ -553,11 +562,6 @@ public partial class MainWindow : Window
 		{
 			SetStatus("Сброс NVIDIA-профиля · " + ex.Message, ok: false);
 		}
-	}
-
-	private void GameGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
-	{
-		base.Dispatcher.BeginInvoke(new Action(SaveSettings));
 	}
 
 	private void AutoSwitch_Changed(object sender, RoutedEventArgs e)
@@ -592,14 +596,8 @@ public partial class MainWindow : Window
 		GameBinding binding = _settings.Games.FirstOrDefault((GameBinding x) => x.ProcessName.Equals(process, StringComparison.OrdinalIgnoreCase));
 		if (binding != null)
 		{
-			GameGrid.SelectedItem = binding;
-			GameGrid.ScrollIntoView(binding);
-			DisplayProfile displayProfile = _settings.Profiles.FirstOrDefault((DisplayProfile x) => x.Name == binding.ProfileName);
-			if (displayProfile != null)
-			{
-				ApplyProfile(displayProfile, select: true);
-			}
-			SetStatus(binding.ProcessName + " · " + binding.ProfileName, ok: true);
+            _selectedGame = binding; RefreshGameCards();
+            EditGame_Click(sender, e);
 		}
 	}
 
@@ -615,15 +613,12 @@ public partial class MainWindow : Window
 
     private void OnActiveGameChanged(GameBinding? binding)
     {
-        if (_selectedMonitor == null || _shutdownPrepared) return;
-        DisplayProfile profile = _gameProfiles.Activate(_selectedMonitor.DeviceName, binding);
-        _activeGame = _gameProfiles.ActiveGame;
-        ApplyProfile(profile, false);
-        SetStatus(binding == null ? "Восстановлена ручная настройка монитора" : binding.ProcessName + " · " + profile.Name, true);
+        ApplyGameSession(binding);
     }
 
 	private void LoadCrosshairControls()
 	{
+        bool previous = _initializing; _initializing = true;
 		CrosshairEnabledCheck.IsChecked = _settings.Crosshair.Enabled;
 		CrosshairShapeCombo.SelectedItem = _settings.Crosshair.Shape.ToString();
 		CrosshairSizeField.Value = _settings.Crosshair.Size;
@@ -631,6 +626,7 @@ public partial class MainWindow : Window
 		CrosshairThicknessField.Value = _settings.Crosshair.Thickness;
 		CrosshairOutlineField.Value = _settings.Crosshair.Outline;
 		UpdateCrosshairPreview();
+        _initializing = previous;
 	}
 
 	private void CrosshairField_Changed(object? sender, EventArgs e)
@@ -658,7 +654,7 @@ public partial class MainWindow : Window
 			_settings.Crosshair.Gap = (int)CrosshairGapField.Value;
 			_settings.Crosshair.Thickness = (int)CrosshairThicknessField.Value;
 			_settings.Crosshair.Outline = (int)CrosshairOutlineField.Value;
-			_crosshair.UpdateSettings(_settings.Crosshair);
+			RefreshPresentation();
 			UpdateCrosshairPreview();
 			SaveSettings();
 		}
@@ -786,6 +782,8 @@ public partial class MainWindow : Window
     private void ApplyDisplayMode(DisplayMode mode)
     {
         if (_selectedMonitor == null) return;
+        try { SuspendGameSession(); }
+        catch (Exception error) { SetStatus("Сначала нужен возврат игрового цвета: " + error.Message, false); return; }
         string device = _selectedMonitor.DeviceName;
         var original = DisplayModeService.Capture(device);
         if (original == null) { SetStatus("Исходный режим не прочитан; изменение пропущено", false); return; }
@@ -1089,7 +1087,7 @@ public partial class MainWindow : Window
         button.IsEnabled = false;
         try {
             using var check = new UpdateCheckService();
-            var result = await check.CheckAsync(new Version(0, 11, 0));
+            var result = await check.CheckAsync(typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 12, 0));
             if (result.ReleasePage != null) System.Windows.Clipboard.SetText(result.ReleasePage.AbsoluteUri);
             SetStatus(result.Message, true);
         }
@@ -1142,8 +1140,10 @@ public partial class MainWindow : Window
         if (_preparingShutdown) return false;
         _preparingShutdown = true;
         try {
-            await OverclockView.StopAsync(); await DiagnosticsView.StopAsync();
+            _monitor.Stop();
+            await OverclockView.StopAsync(); await DiagnosticsView.StopAsync(); await _overlay.StopAsync();
             if (_tweaksCompletion != null) await _tweaksCompletion.Task;
+            RestoreGameSession();
             PersistSettings();
             _closing = true;
             await _signOut(); _shutdownPrepared = true; Close(); return true;
@@ -1206,9 +1206,9 @@ public partial class MainWindow : Window
 			{
 				ApplyCurrent();
 			}
-			else if ((object)_selectedMonitor != null)
+			else
 			{
-                try { _engine.Reset(_selectedMonitor); SetStatus("Эффекты выключены", true); }
+                try { SuspendGameSession(); foreach (MonitorTarget monitor in _monitors) _engine.Reset(monitor); SetStatus("Эффекты выключены", true); }
                 catch (Exception exception) { AppLogService.Error("Effects restoration failed.", exception); SetStatus("Исходный цвет не восстановлен: " + exception.Message, false); }
 			}
             PersistSettings();
@@ -1251,14 +1251,9 @@ public partial class MainWindow : Window
 		});
 		contextMenuStrip.Items.Add("Переключить прицел", null, delegate
 		{
-			base.Dispatcher.Invoke(delegate
-			{
-				_settings.Crosshair.Enabled = !_settings.Crosshair.Enabled;
-				CrosshairEnabledCheck.IsChecked = _settings.Crosshair.Enabled;
-				_crosshair.UpdateSettings(_settings.Crosshair);
-				SaveSettings();
-			});
+			base.Dispatcher.Invoke(() => InvokeHotkey(HotkeyAction.ToggleCrosshair));
 		});
+        contextMenuStrip.Items.Add("Переключить оверлей", null, (_, _) => Dispatcher.Invoke(() => InvokeHotkey(HotkeyAction.ToggleOverlay)));
 		contextMenuStrip.Items.Add((ToolStripItem)new ToolStripSeparator());
 		contextMenuStrip.Items.Add("Выход", null, delegate
 		{
@@ -1320,9 +1315,12 @@ public partial class MainWindow : Window
                 _preparingShutdown = true;
                 try
                 {
+                    _monitor.Stop();
                     await OverclockView.StopAsync();
                     await DiagnosticsView.StopAsync();
+                    await _overlay.StopAsync();
                     if (_tweaksCompletion != null) await _tweaksCompletion.Task;
+                    RestoreGameSession();
                     _shutdownPrepared = true;
                     _closing = true;
                     Close();
@@ -1344,6 +1342,7 @@ public partial class MainWindow : Window
         _saveTimer.Stop();
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
         _monitor.Dispose();
+		_hotkeys?.Dispose(); _overlay.Dispose();
 		_crosshair.Close();
 		DiagnosticsView.Dispose();
 		OverclockView.Dispose();
@@ -1369,10 +1368,19 @@ public partial class MainWindow : Window
                 MonitorCombo.SelectedItem = _selectedMonitor;
                 _settings.SelectedMonitorDeviceName = _selectedMonitor?.DeviceName ?? string.Empty;
                 _crosshair.SetMonitor(_selectedMonitor?.DeviceName);
+                if (_presentation.Binding != null) RestoreGameSession();
                 LoadDisplayModes(); UpdateMonitorLabels();
                 if (_selectedMonitor != null) LoadProfileIntoControls(_gameProfiles.Manual(_selectedMonitor.DeviceName));
+                RefreshPresentation();
                 SaveSettings();
+                _monitor.Invalidate();
                 if (_selectedMonitor == null) SetStatus("Монитор отключён", false);
+            }
+            catch (Exception error)
+            {
+                AppLogService.Error("Display hot-plug restoration failed.", error);
+                _crosshair.UpdateSettings(new()); _overlay.Update(new(), null, "", null);
+                SetStatus("Монитор изменился; возврат цвета ожидает подключения исходного устройства: " + error.Message, false);
             }
             finally { _initializing = previous; _refreshingDisplays = false; }
         }));

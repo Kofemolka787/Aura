@@ -7,6 +7,8 @@ namespace ColorForge.Models;
 
 public sealed class AppSettings
 {
+    public OverlaySettings Overlay { get; set; } = new();
+    public List<HotkeyBinding> Hotkeys { get; set; } = HotkeyBinding.Defaults();
     public int SchemaVersion { get; set; }
     public bool ApplyProfileOnStartup { get; set; } = true;
     public Dictionary<string, DisplayProfile> ManualMonitorProfiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);

@@ -36,6 +36,13 @@
     <Compile Include="../../ColorForge.Services/BenchmarkHistoryStore.cs" />
     <Compile Include="../../ColorForge.Services/EmbeddedToolExtractor.cs" />
     <Compile Include="../../ColorForge.Services/GameProfileController.cs" />
+    <Compile Include="../../ColorForge.Services/GameSessionSelector.cs" />
+    <Compile Include="../../ColorForge.Services/GamePresentationSession.cs" />
+    <Compile Include="../../ColorForge.Services/BenchmarkSeriesService.cs" />
+    <Compile Include="../../ColorForge.Services/LiveFrameTail.cs" />
+    <Compile Include="../../ColorForge.Services/LiveCsvReader.cs" />
+    <Compile Include="../../ColorForge.Services/LiveFrameCaptureService.cs" />
+    <Compile Include="../../ColorForge.Services/OverlayFreshness.cs" />
     <Compile Include="../../ColorForge.Services/ProfileCatalogService.cs" />
     <Compile Include="../../ColorForge.Services/CrosshairGeometry.cs" />
     <Compile Include="../../ColorForge.Services/UpdateCheckService.cs" />

@@ -12,6 +12,7 @@ public sealed class CrosshairWindow : Window
 {
     private CrosshairSettings _settings = new();
     private string? _deviceName;
+    private bool _closed;
     public CrosshairWindow()
     {
         WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = System.Windows.Media.Brushes.Transparent;
@@ -19,6 +20,7 @@ public sealed class CrosshairWindow : Window
         Width = Height = 1;
         SourceInitialized += (_, _) => { MakeClickThrough(); PositionOnSelectedMonitor(); };
         SizeChanged += (_, _) => InvalidateVisual();
+        Closed += (_, _) => _closed = true;
     }
     public void UpdateSettings(CrosshairSettings settings)
     {
@@ -31,14 +33,20 @@ public sealed class CrosshairWindow : Window
     public void SetMonitor(string? deviceName) { _deviceName = deviceName; PositionOnSelectedMonitor(); InvalidateVisual(); }
     private void PositionOnSelectedMonitor()
     {
+        if (_closed) return;
         nint handle = new WindowInteropHelper(this).Handle;
         if (handle == IntPtr.Zero) return;
-        Screen? screen = Screen.AllScreens.FirstOrDefault(x => x.DeviceName.Equals(_deviceName, StringComparison.OrdinalIgnoreCase)) ?? Screen.PrimaryScreen;
-        if (screen == null) return;
+        Screen? screen = Screen.AllScreens.FirstOrDefault(x => x.DeviceName.Equals(_deviceName, StringComparison.OrdinalIgnoreCase));
+        if (screen == null) { Hide(); return; }
         var bounds = screen.Bounds;
         // HWND bounds are physical pixels; drawing uses this window's local WPF coordinates.
         if (!SetWindowPos(handle, new IntPtr(-1), bounds.Left, bounds.Top, bounds.Width, bounds.Height, 0x0010 | 0x0200))
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        Dispatcher.BeginInvoke(new Action(PositionOnSelectedMonitor));
     }
     protected override void OnRender(System.Windows.Media.DrawingContext context)
     {

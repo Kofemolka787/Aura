@@ -56,5 +56,5 @@ jobs:
         run: ./scripts/build-release.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: Aura-v0.11-unsigned-development
-          path: release-v0.11
+          name: Aura-v0.12-unsigned-development
+          path: release-v0.12

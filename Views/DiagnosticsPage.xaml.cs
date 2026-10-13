@@ -40,6 +40,29 @@ public partial class DiagnosticsPage : UserControl, IDisposable
     private bool _readingTelemetry;
     private IReadOnlyList<AuditItem> _lastAudit = Array.Empty<AuditItem>();
     private IReadOnlyList<AuditItem> _lastStutter = Array.Empty<AuditItem>();
+    private Func<Task>? _pauseOverlay;
+    private Action? _resumeOverlay;
+    private Action<LiveFrameSnapshot?>? _benchmarkFrames;
+    private BenchmarkRunInfo? _series;
+    private int _seriesCompleted;
+    private string? _seriesProcess;
+    public event Action? SelectedProcessChanged;
+    public string? SelectedProcess => ProcessCombo.SelectedItem as string;
+    public void ConfigureCaptureCoordinator(Func<Task> pause, Action resume, Action<LiveFrameSnapshot?> frames)
+    { _pauseOverlay = pause; _resumeOverlay = resume; _benchmarkFrames = frames; }
+
+    public void ToggleBenchmark(string? preferredProcess = null)
+    {
+        if (_stopping) return;
+        if (_benchmarkCompletion != null) { _benchmarkCancellation?.Cancel(); return; }
+        if (!string.IsNullOrEmpty(preferredProcess))
+        {
+            RefreshProcesses();
+            ProcessCombo.SelectedItem = _allProcesses.FirstOrDefault(x => x.Equals(preferredProcess + ".exe", StringComparison.OrdinalIgnoreCase));
+        }
+        StartBenchmark_Click(this, new RoutedEventArgs());
+    }
+    private void Process_Changed(object sender, SelectionChangedEventArgs e) => SelectedProcessChanged?.Invoke();
 
     public DiagnosticsPage()
     {
@@ -140,21 +163,42 @@ public partial class DiagnosticsPage : UserControl, IDisposable
         _benchmarkCancellation?.Dispose();
         _benchmarkCancellation = new CancellationTokenSource();
         _benchmarkCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource owner = _benchmarkCompletion;
         StartBenchmarkButton.IsEnabled = false;
         CancelBenchmarkButton.IsEnabled = true;
         BenchmarkProgress.Value = 0;
+        BenchmarkContextPanel.IsEnabled = false;
+        ProcessCombo.IsEnabled = false; DurationCombo.IsEnabled = false;
+        List<TelemetrySample> samples = new();
+        using CancellationTokenSource sampling = CancellationTokenSource.CreateLinkedTokenSource(_benchmarkCancellation.Token);
+        Task? collector = null;
 
         try
         {
+            BenchmarkRunInfo? run = await PrepareRunAsync(process, duration);
+            _benchmarkCancellation.Token.ThrowIfCancellationRequested();
+            if (_pauseOverlay != null) await _pauseOverlay();
+            _benchmarkCancellation.Token.ThrowIfCancellationRequested();
+            collector = CollectTelemetryAsync(samples, sampling.Token);
             Progress<BenchmarkProgress> progress = new Progress<BenchmarkProgress>(p =>
             {
+                if (_stopping || !ReferenceEquals(_benchmarkCompletion, owner)) return;
                 BenchmarkProgress.Value = p.Percent;
                 BenchmarkStatusText.Text = p.Message;
+                _benchmarkFrames?.Invoke(p.Frames);
             });
-            _lastBenchmark = await _benchmark.RunAsync(process, duration, progress, _benchmarkCancellation.Token);
+            _lastBenchmark = await _benchmark.RunAsync(process, duration, progress, _benchmarkCancellation.Token, run);
+            sampling.Cancel();
+            await collector;
+            _lastBenchmark.Telemetry = samples;
+            _benchmark.Save(_lastBenchmark);
+            if (run != null) _seriesCompleted++;
             ShowBenchmark(_lastBenchmark);
             RefreshHistory();
-            BenchmarkStatusText.Text = "Тест завершён · CSV и JSON сохранены в LocalAppData\\AURA\\Benchmarks";
+            BenchmarkStatusText.Text = run == null ? "Замер сохранён · CSV, JSON и датчики"
+                : $"Прогон {run.RunNumber}/{run.ExpectedRuns} сохранён. " + (_seriesCompleted < run.ExpectedRuns
+                    ? "Вернись к началу той же сцены и начни следующий прогон кнопкой или горячей клавишей."
+                    : "Серия завершена. Для сравнения запиши отдельную серию после изменений.");
         }
         catch (OperationCanceledException)
         {
@@ -167,11 +211,67 @@ public partial class DiagnosticsPage : UserControl, IDisposable
         }
         finally
         {
+            sampling.Cancel();
+            if (collector != null) await collector;
+            _resumeOverlay?.Invoke();
+            BenchmarkContextPanel.IsEnabled = true;
+            ProcessCombo.IsEnabled = true; DurationCombo.IsEnabled = true;
             StartBenchmarkButton.IsEnabled = true;
             CancelBenchmarkButton.IsEnabled = false;
             _benchmarkCompletion?.TrySetResult();
             _benchmarkCompletion = null;
         }
+    }
+
+    private async Task<BenchmarkRunInfo?> PrepareRunAsync(string process, int duration)
+    {
+        int repeats = (RepeatsCombo.SelectedItem as ComboBoxItem)?.Tag is string tag && int.TryParse(tag, out int n) ? n : 1;
+        if (repeats == 1) return null;
+        HardwareSnapshot? hardware = _hardware == null ? null : await _hardware.ReadSnapshotAsync();
+        DisplayMode? display = _displayModeProvider?.Invoke();
+        BenchmarkContext context = new()
+        {
+            Scene = SceneBox.Text.Trim(), GraphicsSettings = GraphicsBox.Text.Trim(), GameVersion = GameVersionBox.Text.Trim(),
+            DriverVersion = DriverVersionBox.Text.Trim(), WindowsVersion = Environment.OSVersion.VersionString,
+            CpuName = hardware?.CpuName ?? "", GpuName = hardware?.GpuName ?? "",
+            Width = display?.Width ?? 0, Height = display?.Height ?? 0, RefreshRate = display?.RefreshRate ?? 0, RequestedDurationSeconds = duration
+        };
+        if (!context.IsComplete) throw new InvalidOperationException("Для серии заполни сцену, настройки графики и версии игры/драйвера. Данные оборудования и режима монитора тоже должны быть доступны. Для одиночного замера выбери «1 прогон».");
+        string variant = VariantBox.Text.Trim();
+        if (variant.Length == 0) throw new InvalidOperationException("Назови вариант серии, например «До» или «После».");
+        if (_series == null || _seriesCompleted >= _series.ExpectedRuns || _series.Context != context
+            || _series.Variant != variant || _series.ExpectedRuns != repeats || _seriesProcess != process)
+        {
+            _series = new() { Context = context, Variant = variant, ExpectedRuns = repeats };
+            _seriesCompleted = 0; _seriesProcess = process;
+        }
+        return _series with { RunNumber = _seriesCompleted + 1 };
+    }
+    private async Task CollectTelemetryAsync(List<TelemetrySample> samples, CancellationToken token)
+    {
+        if (_hardware == null) return;
+        try
+        {
+            while (!token.IsCancellationRequested && samples.Count < 240)
+            {
+                HardwareSnapshot value = await _hardware.ReadSnapshotAsync(token: token);
+                samples.Add(TelemetrySample.FromSnapshot(value));
+                await Task.Delay(1000, token);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception error) { AppLogService.Error("Benchmark sensor recording stopped.", error); }
+    }
+    private void NewSeries_Click(object sender, RoutedEventArgs e)
+    {
+        if (_benchmarkCompletion != null) return;
+        _series = null; _seriesCompleted = 0;
+        BenchmarkStatusText.Text = "Следующий прогон начнёт новую серию. Предыдущие записи сохранены.";
+    }
+    private void Repeats_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (SeriesFieldsPanel != null) SeriesFieldsPanel.Visibility = (RepeatsCombo.SelectedItem as ComboBoxItem)?.Tag as string == "1"
+            ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void CancelBenchmark_Click(object sender, RoutedEventArgs e) => _benchmarkCancellation?.Cancel();
@@ -201,6 +301,10 @@ public partial class DiagnosticsPage : UserControl, IDisposable
         CompareAfterCombo.ItemsSource = history;
         if (history.Count > 0) CompareAfterCombo.SelectedIndex = 0;
         if (history.Count > 1) CompareBeforeCombo.SelectedIndex = 1;
+        var series = BenchmarkSeriesService.Group(history);
+        SeriesBeforeCombo.ItemsSource = series; SeriesAfterCombo.ItemsSource = series;
+        if (series.Count > 0) SeriesAfterCombo.SelectedIndex = 0;
+        if (series.Count > 1) SeriesBeforeCombo.SelectedIndex = 1;
     }
 
     private void History_Changed(object sender, SelectionChangedEventArgs e)
@@ -211,7 +315,13 @@ public partial class DiagnosticsPage : UserControl, IDisposable
     private void FrameStream_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_updatingStreams || _lastBenchmark == null || FrameStreamCombo.SelectedItem is not FrameStreamChoice choice) return;
-        try { ShowBenchmark(BenchmarkService.Parse(_lastBenchmark.CsvPath, _lastBenchmark.ProcessName, choice.Id, _lastBenchmark.RecordedAt)); }
+        try
+        {
+            BenchmarkResult previous = _lastBenchmark;
+            BenchmarkResult selected = BenchmarkService.Parse(previous.CsvPath, previous.ProcessName, choice.Id, previous.RecordedAt, previous.Run);
+            selected.Telemetry = previous.Telemetry;
+            ShowBenchmark(selected);
+        }
         catch (Exception exception) { BenchmarkStatusText.Text = exception.Message; }
     }
 
@@ -238,6 +348,11 @@ public partial class DiagnosticsPage : UserControl, IDisposable
         ComparisonText.Text = CompareBeforeCombo.SelectedItem is BenchmarkResult before && CompareAfterCombo.SelectedItem is BenchmarkResult after
             ? BenchmarkHistoryStore.Compare(before, after) : "Выбери два замера одной игры.";
     }
+    private void CompareSeries_Click(object sender, RoutedEventArgs e)
+    {
+        ComparisonText.Text = SeriesBeforeCombo.SelectedItem is BenchmarkSeries before && SeriesAfterCombo.SelectedItem is BenchmarkSeries after
+            ? BenchmarkSeriesService.Compare(before, after) : "Запиши две серии по 3 или 5 прогонов.";
+    }
 
     private void ExportReport_Click(object sender, RoutedEventArgs e)
     {
@@ -251,7 +366,8 @@ public partial class DiagnosticsPage : UserControl, IDisposable
                 Windows = Environment.OSVersion.VersionString, Hardware = SafeHardware(_hardware?.ReadSnapshot()),
                 Audit = _lastAudit, SystemEvents = _lastStutter,
                 Benchmarks = new BenchmarkHistoryStore(_benchmark.OutputDirectory).Load().Select(x => new
-                { x.RecordedAt, x.ProcessName, x.FrameCount, x.AverageFps, x.OnePercentLowFps, x.P95FrameTimeMs, x.P99FrameTimeMs, x.StutterCount, x.Metric })
+                { x.RecordedAt, x.ProcessName, x.FrameCount, x.AverageFps, x.OnePercentLowFps, x.P95FrameTimeMs, x.P99FrameTimeMs, x.StutterCount, x.Metric,
+                    x.Run, x.Telemetry })
             };
             AtomicFile.Write(dialog.FileName, JsonSerializer.SerializeToUtf8Bytes(report, new JsonSerializerOptions { WriteIndented = true }));
             ComparisonText.Text = "Отчёт сохранён. Данные входа и лицензионные токены не включены.";

@@ -20,12 +20,12 @@ public sealed class GameProfileController
         : _settings.MonitorProfiles.TryGetValue(monitor, out profile) ? profile.Clone()
         : (_settings.SelectedProfile ?? _settings.Current).Clone();
 
-    public DisplayProfile Activate(string monitor, GameBinding? binding)
+    public DisplayProfile Activate(string monitor, GameBinding? binding, DisplayProfile? manual = null)
     {
         if (binding == null) { ActiveGame = null; return Manual(monitor); }
         DisplayProfile? profile = _settings.Profiles.FirstOrDefault(x => x.Name.Equals(binding.ProfileName, StringComparison.OrdinalIgnoreCase));
         if (profile == null) { ActiveGame = null; return Manual(monitor); }
-        if (ActiveGame == null) SaveManual(monitor, _settings.Current);
+        if (ActiveGame == null) SaveManual(monitor, manual ?? _settings.Current);
         ActiveGame = binding.ProcessName;
         return profile.Clone();
     }

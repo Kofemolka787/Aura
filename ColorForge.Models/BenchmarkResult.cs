@@ -5,6 +5,8 @@ namespace ColorForge.Models;
 
 public sealed class BenchmarkResult
 {
+    public BenchmarkRunInfo? Run { get; init; }
+    public List<TelemetrySample> Telemetry { get; set; } = new();
     public string StreamId { get; init; } = string.Empty;
     public List<FrameStreamChoice> Streams { get; init; } = new();
     public double[] FrameTimesMs { get; init; } = Array.Empty<double>();
@@ -33,7 +35,8 @@ public sealed class BenchmarkResult
     public string CsvPath { get; init; } = string.Empty;
 
     public string Summary => $"{AverageFps:0} FPS · 1% low {OnePercentLowFps:0} · P95 {P95FrameTimeMs:0.0} ms";
-    public string HistoryLabel => RecordedAt.ToLocalTime().ToString("dd.MM HH:mm") + " · " + ProcessName + " · " + Summary;
+    public string HistoryLabel => RecordedAt.ToLocalTime().ToString("dd.MM HH:mm") + " · " + ProcessName
+        + (Run == null ? "" : $" · {Run.Variant} {Run.RunNumber}/{Run.ExpectedRuns}") + " · " + Summary;
 }
 
 public sealed class FrameStreamChoice

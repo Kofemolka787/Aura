@@ -1,8 +1,17 @@
-# AURA v0.11 — implementation status
+# AURA v0.12 — implementation status
 
 The user authorized the previously discussed improvements and subsequent corrections. Implementation is complete for the development scope; the final release is verified locally. Repository/environment persistence is the final step. Native QA and commercial prerequisites are separate, explicitly unperformed items.
 
-## Implemented
+## v0.12 development increment
+
+- Implemented game cards with optional per-game crosshair/OSD/monitor/color and configurable focus-loss policy; common settings remain separate from temporary overrides.
+- Implemented write-ahead, boot/device-bound DPAPI game-color recovery, preserving actual gamma and raw NVIDIA DVC levels before game changes and the former active monitor before a target switch. Unrestored records are retained and block replacement.
+- Implemented configurable global hotkeys and hook-free WPF OSD. PresentMon live capture consumes complete CSV rows with bounded histories, distinct process/swapchain streams, no generated-frame FPS, freshness expiry independent of a delayed sensor read, invalidation of dynamic clock/power/used-memory caches, cancellation, owned-session cleanup and temporary-file removal. Benchmark capture supplies OSD data without another AURA capture running concurrently.
+- Implemented series metadata, completeness/condition/duration validation, averages and min/max ranges across all runs, and hardware sample recording while minimized. The user restarts the scene before each run.
+- Added legacy settings backup, meaningful tuner labels, documentation and portable regressions.
+- Native Windows QA remains unperformed. DDC/CI, ICC/HDR, cooling control, store/library integrations and a scaling renderer are future work; automatic game resolution changes are not implemented.
+
+## Inherited v0.11 implementation
 
 - Hardware: exact absolute Intel limits and exact NVIDIA offset in kHz, boot/device-bound DPAPI recovery before writes, verified writes, one write gate, fail-closed temperature control, invalidation of cached temperature/load before each LHM update, deterministic CPU/GPU compute checks, explicit auto-apply, extended tests/history, pending recovery using saved devices, shutdown/logout coordination and blocked exit on unconfirmed rollback. Native adapters are separated from portable orchestration for regression tests.
 - Windows Tuner: embedded PowerShell runtime, protected write-ahead journal and trusted system-module path, original caller SID, exact registry/service/task/power/BCD/NTFS/reserved-storage restoration for recorded actions, errors retain recovery data, verified in-memory elevated script, installer hash/trust checks under a locked handle, preview/history/statuses and legacy snapshot visibility.

@@ -2,6 +2,7 @@ namespace ColorForge.Models;
 
 public sealed class CrosshairSettings
 {
+    public CrosshairSettings Clone() => (CrosshairSettings)MemberwiseClone();
 	public bool Enabled { get; set; }
 
 	public CrosshairShape Shape { get; set; }

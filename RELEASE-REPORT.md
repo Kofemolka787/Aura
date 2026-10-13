@@ -1,28 +1,30 @@
-# AURA v0.11 — current development release evidence
+# AURA v0.12 — проверка текущей сборки для разработки
 
-Generated from `release-v0.11-current/release-report.json` for the executable built on 2026-10-13T06:06:04.4459122Z. This replaces the historical v0.10 report.
+Отчёт сверён с `release-v0.12-final/release-report.json` и EXE, собранным 2026-10-13T10:58:16.0205618Z.
 
-- SDK: 8.0.425; Windows x64 PE verified.
-- EXE: 210,060,824 bytes; standalone ReadyToRun single file.
-- SHA-256: `7cd73067d5295d7129351ef89070d939e802dccafa00079125cd620aae09ed72`.
-- Authentication: Prototype.
-- Signature: Unsigned development build.
+- Windows x64 PE проверен; SDK 8.0.425.
+- EXE: 210,384,408 байт; самостоятельный single-file ReadyToRun.
+- SHA-256: `d1a55ddc2aea5f7b4be5c8784560c88ebb3eb238fefbbeafcb9a0ad9d7e72769`.
+- Авторизация: Prototype; подпись: Unsigned development build.
 
-- Aura.AuthTests: 8/8 passed; skipped 0.
-- Aura.RegressionTests: 39/39 passed; skipped 0.
-- PowerShell: 12 fixture checks; no native writes.
-- Catalog: 82 definitions; risks 47 Safe / 28 Caution / 7 Danger; presets 25/41/61; no Danger in presets.
-- Cached-sensor fixtures use the pinned LHM managed Sensor implementation on Linux without opening hardware; they prove stale cache invalidation, not native driver behavior.
-- Current build: zero warnings/errors. Locked dependency restore succeeded. NuGet vulnerability audit checked six projects with no known vulnerable packages reported by the current source.
-- Local ASP.NET host started and returned the expected health protocol; invalid login was rejected. Real ASP.NET HTTP pipeline and matching client exercised by the authentication test suite.
-- Versioned copyleft source archive hashes verified; 48 runtime NuGet packages inventoried. Licensing files are packaged separately from the EXE.
+- Aura.AuthTests: 8/8; пропусков 0.
+- Aura.RegressionTests: 61/61; пропусков 0.
+- PowerShell: 13 fixture checks; no native writes.
+- Каталог: 82 определения; 47 Safe / 28 Caution / 7 Danger; пресеты 25/41/61 без Danger.
+- Locked restore и publish завершились успешно. Последняя отдельная сборка приложения: 0 предупреждений и ошибок.
+- Новые регрессии покрывают копирование/возврат игровых настроек, два монитора на уровне модели, миграцию, недопустимые клавиши, raw DVC-преобразования, сопоставимость и полноту серий, короткие записи, CSV с частичными строками/UTF-8, длинные задержки, устаревшие FPS/датчики и очистку собственной live-сессии.
+- Фикстуры кэша используют настоящую управляемую реализацию Sensor из закреплённой LHM 0.9.6 без открытия драйвера. Они не доказывают поведение настоящего оборудования.
 
-## Unperformed and blocked checks
+## Что вошло
 
-Native WPF behavior, UAC, DPAPI on Windows, registry/services/tasks/power/BCD, driver installation/trust, NVAPI/Direct3D, physical CPU/GPU/monitor writes, hardware stability and mixed DPI were not run in this Linux environment. Windows CI is configured but its remote run is not part of this local evidence. Follow `RELEASE-CHECKLIST.md` before distribution.
+Карточки игр с выбранными цветом, прицелом, монитором и OSD; правила Alt-Tab/завершения процесса; отдельные общие настройки; журнал временного цвета с гаммой/raw DVC до записи; глобальные клавиши; внешнее окно телеметрии и FPS; серии по 3/5 прогонов с метаданными и разбросом; запись датчиков при свёрнутом окне; резервная копия старых настроек; руководство и матрица Windows.
 
-Docker build was blocked by cloud network policy at Microsoft's registry CDN; no container run is claimed. The ordinary local backend works. Commercial domain/hosting and Authenticode certificate were not supplied, so no public deployment or EXE signing occurred.
+## Что не проверено
 
-AMD PBO writes, four AppX removals without trusted MSIX recovery sources, and disabling hibernation without exact type/size recovery are explicitly unavailable. They are not counted as passed hardware/Windows tests.
+Сборка и переносимые тесты выполнены на Linux. Не выполнены WPF/Win32-регистрация клавиш, смешанный DPI, DPAPI на Windows, NVAPI/GDI на настоящих мониторах, ETW живой игры, UAC/драйверы, физический CPU/GPU, античиты, влияние OSD на производительность и Windows CI. Выполнить `RELEASE-CHECKLIST.md` на Windows до распространения.
 
-The archived v0.10 tweak journal is preserved and flagged; it is not automatically trusted or executed. v0.11 can restore the values it records before its own changes.
+Текущая сборка не является подписанным коммерческим выпуском. Хостинг/домен и Authenticode отсутствуют по ранее полученным ответам; сервер подготовлен локально. Docker ранее был заблокирован политикой доступа к CDN, успешный контейнер не заявляется.
+
+AMD PBO, четыре удаления AppX и отключение гибернации без точного возврата остаются недоступными. DDC/CI, ICC/HDR, управление вентиляторами, магазинные интеграции, общая временная шкала и новый рендерер масштабирования — следующие этапы. Разрешение меняется вручную с подтверждением.
+
+Готовый EXE v0.11 и его архив сохранены отдельно. v0.11 не получает функции v0.12; обе версии используют общую папку настроек, и старый клиент может не сохранить новые поля.

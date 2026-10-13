@@ -12,13 +12,14 @@ using ColorForge.Models;
 
 namespace ColorForge.Services;
 
-public sealed record BenchmarkProgress(int Percent, string Message);
+public sealed record BenchmarkProgress(int Percent, string Message, LiveFrameSnapshot? Frames = null);
 public sealed class BenchmarkService
 {
     private const string PresentMonHash = "9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191";
     private readonly IExternalToolRunner _runner;
     private readonly Func<string> _toolProvider;
     public string OutputDirectory { get; }
+    internal string GetToolPath() => _toolProvider();
     public BenchmarkService(IExternalToolRunner? runner = null, string? directory = null, Func<string>? toolProvider = null)
     {
         _runner = runner ?? new ExternalToolRunner();
@@ -53,7 +54,7 @@ public sealed class BenchmarkService
     }
 
 
-    public async Task<BenchmarkResult> RunAsync(string processName, int durationSeconds, IProgress<BenchmarkProgress>? progress, CancellationToken token)
+    public async Task<BenchmarkResult> RunAsync(string processName, int durationSeconds, IProgress<BenchmarkProgress>? progress, CancellationToken token, BenchmarkRunInfo? run = null)
     {
         if (string.IsNullOrWhiteSpace(processName)) throw new ArgumentException("Выбери запущенную игру.", nameof(processName));
         durationSeconds = Math.Clamp(durationSeconds, 10, 180);
@@ -67,10 +68,14 @@ public sealed class BenchmarkService
                 "--terminate_after_timed", "--no_console_stats", "--v2_metrics", "--session_name", session },
             TimeSpan.FromSeconds(durationSeconds + 30), token, Path.GetDirectoryName(tool));
         Stopwatch time = Stopwatch.StartNew();
+        using LiveCsvReader live = new(csv, processName);
         while (!capture.IsCompleted)
         {
+            LiveFrameSnapshot? frames = null;
+            try { if (progress != null) frames = live.Read(DateTime.UtcNow); }
+            catch (IOException) { }
             progress?.Report(new(Math.Clamp((int)(time.Elapsed.TotalSeconds / durationSeconds * 100), 0, 99),
-                $"Запись кадров · {Math.Max(0, durationSeconds - (int)time.Elapsed.TotalSeconds)} сек."));
+                $"Запись кадров · {Math.Max(0, durationSeconds - (int)time.Elapsed.TotalSeconds)} сек.", frames));
             await Task.WhenAny(capture, Task.Delay(250)).ConfigureAwait(false);
         }
         ToolResult result;
@@ -90,12 +95,14 @@ public sealed class BenchmarkService
         }
         if (!File.Exists(csv)) throw new InvalidDataException("PresentMon не создал CSV.");
         progress?.Report(new(100, "Анализ отдельного потока кадров"));
-        BenchmarkResult benchmark = Parse(csv, processName, recordedAt: startedAt);
-        AtomicFile.Write(Path.ChangeExtension(csv, ".json"), JsonSerializer.SerializeToUtf8Bytes(benchmark));
+        BenchmarkResult benchmark = Parse(csv, processName, recordedAt: startedAt, run: run);
+        Save(benchmark);
         return benchmark;
     }
 
-    internal static BenchmarkResult Parse(string csvPath, string processName, string? selectedStream = null, DateTime? recordedAt = null)
+    public void Save(BenchmarkResult result) => AtomicFile.Write(Path.ChangeExtension(result.CsvPath, ".json"), JsonSerializer.SerializeToUtf8Bytes(result));
+
+    internal static BenchmarkResult Parse(string csvPath, string processName, string? selectedStream = null, DateTime? recordedAt = null, BenchmarkRunInfo? run = null)
     {
         if (new FileInfo(csvPath).Length > 128 * 1024 * 1024) throw new InvalidDataException("CSV превышает 128 МиБ.");
         using StreamReader reader = new(csvPath, Encoding.UTF8, true);
@@ -142,6 +149,7 @@ public sealed class BenchmarkService
         if (!double.IsFinite(duration) || duration <= 0) throw new InvalidDataException("Некорректный интервал записи.");
         return new()
         {
+            Run = run,
             ProcessName = processName, RecordedAt = recordedAt ?? File.GetCreationTimeUtc(csvPath), StreamId = chosen, Streams = choices, FrameCount = ordered.Length,
             DurationSeconds = duration / 1000, AverageFps = 1000 / mean,
             OnePercentLowFps = 1000 / sorted.TakeLast(Math.Max(1, (int)Math.Ceiling(sorted.Length * 0.01))).Average(),
@@ -177,7 +185,7 @@ public sealed class BenchmarkService
         return sorted[low] + (sorted[high] - sorted[low]) * (index - low);
     }
 
-    private static IReadOnlyList<string> ParseCsvLine(string line)
+    internal static IReadOnlyList<string> ParseCsvLine(string line)
     {
         List<string> values = new List<string>();
         StringBuilder current = new StringBuilder();

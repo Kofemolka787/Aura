@@ -70,7 +70,7 @@ public sealed class SettingsStore
                 settings.Overclock.ApplyLearnedGpuOnStart = false;
             }
         }
-        settings.SchemaVersion = 2;
+        settings.SchemaVersion = 3;
         settings.Profiles = (settings.Profiles ?? new()).Where(p => p != null)
             .Select(NormalizeProfile).GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
         foreach (DisplayProfile profile in Defaults.CreateProfiles())
@@ -84,8 +84,11 @@ public sealed class SettingsStore
             .Where(g => g.ProcessName.Length <= 128 && g.ProcessName.IndexOfAny(new[] { '\\', '/', '"', '\r', '\n' }) < 0)
             .GroupBy(g => g.ProcessName, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
         foreach (GameBinding game in settings.Games)
+        {
+            NormalizeGame(game);
             if (!settings.Profiles.Any(p => p.Name.Equals(game.ProfileName, StringComparison.OrdinalIgnoreCase)))
                 game.ProfileName = settings.SelectedProfileName;
+        }
         settings.MonitorProfiles = (settings.MonitorProfiles ?? new()).Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value != null)
             .GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(p => p.Key, p => NormalizeProfile(p.First().Value), StringComparer.OrdinalIgnoreCase);
@@ -94,12 +97,15 @@ public sealed class SettingsStore
             .ToDictionary(p => p.Key, p => NormalizeProfile(p.First().Value), StringComparer.OrdinalIgnoreCase);
         foreach (var pair in settings.MonitorProfiles)
             if (!settings.ManualMonitorProfiles.ContainsKey(pair.Key)) settings.ManualMonitorProfiles[pair.Key] = pair.Value.Clone();
-        settings.Crosshair ??= new();
-        settings.Crosshair.Size = Math.Clamp(settings.Crosshair.Size, 1, 40);
-        settings.Crosshair.Gap = Math.Clamp(settings.Crosshair.Gap, 0, 40);
-        settings.Crosshair.Thickness = Math.Clamp(settings.Crosshair.Thickness, 1, 10);
-        settings.Crosshair.Outline = Math.Clamp(settings.Crosshair.Outline, 0, 10);
-        if (!Enum.IsDefined(settings.Crosshair.Shape)) settings.Crosshair.Shape = CrosshairShape.Cross;
+        settings.Crosshair = NormalizeCrosshair(settings.Crosshair ?? new());
+        settings.Overlay = NormalizeOverlay(settings.Overlay ?? new());
+        settings.Hotkeys = (settings.Hotkeys ?? HotkeyBinding.Defaults()).Where(x => x != null && Enum.IsDefined(x.Action))
+            .GroupBy(x => x.Action).Select(x => x.First()).ToList();
+        foreach (HotkeyBinding hotkey in settings.Hotkeys)
+        {
+            hotkey.Key = (hotkey.Key ?? "").Trim().ToUpperInvariant();
+            if (HotkeyBinding.VirtualKey(hotkey.Key) == 0 || hotkey.Modifiers == 0) hotkey.Enabled = false;
+        }
         settings.Tweaks ??= new();
         WindowsTweaksService.InitializePreferences(settings.Tweaks, true);
         settings.Tweaks.EnabledTweakIds = (settings.Tweaks.EnabledTweakIds ?? new()).Where(id => id != null)
@@ -119,11 +125,53 @@ public sealed class SettingsStore
         return settings;
     }
 
+    public static CrosshairSettings NormalizeCrosshair(CrosshairSettings value)
+    {
+        value.Size = Math.Clamp(value.Size, 1, 40); value.Gap = Math.Clamp(value.Gap, 0, 40);
+        value.Thickness = Math.Clamp(value.Thickness, 1, 10); value.Outline = Math.Clamp(value.Outline, 0, 10);
+        if (!Enum.IsDefined(value.Shape)) value.Shape = CrosshairShape.Cross;
+        return value;
+    }
+    public static OverlaySettings NormalizeOverlay(OverlaySettings value)
+    {
+        value.Scale = double.IsFinite(value.Scale) ? Math.Clamp(value.Scale, 0.7, 2) : 1;
+        value.Opacity = double.IsFinite(value.Opacity) ? Math.Clamp(value.Opacity, 0.25, 1) : 0.85;
+        if (!Enum.IsDefined(value.Corner)) value.Corner = OverlayCorner.TopLeft;
+        return value;
+    }
+    public static GameBinding NormalizeGame(GameBinding game)
+    {
+        game.DisplayName = (game.DisplayName ?? "").Trim();
+        if (game.DisplayName.Length > 64) game.DisplayName = game.DisplayName[..64];
+        game.MonitorDeviceName = (game.MonitorDeviceName ?? "").Trim();
+        if (game.MonitorDeviceName.Length > 128) game.MonitorDeviceName = string.Empty;
+        game.Crosshair = NormalizeCrosshair(game.Crosshair ?? new());
+        game.Overlay = NormalizeOverlay(game.Overlay ?? new());
+        game.ProfileName ??= "Natural";
+        return game;
+    }
+
     public void Save(AppSettings settings)
     {
         lock (_gate)
         {
             AppSettings copy = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.SerializeToUtf8Bytes(settings, Options), Options)!;
+            if (File.Exists(SettingsPath))
+            {
+                if (new FileInfo(SettingsPath).Length > 4 * 1024 * 1024) throw new InvalidDataException("Существующий файл настроек превышает 4 МиБ; он сохранён без перезаписи.");
+                byte[] original = File.ReadAllBytes(SettingsPath);
+                bool legacy = true;
+                try
+                {
+                    using JsonDocument document = JsonDocument.Parse(original);
+                    if (document.RootElement.ValueKind == JsonValueKind.Object)
+                    foreach (JsonProperty property in document.RootElement.EnumerateObject())
+                        if (property.Name.Equals("SchemaVersion", StringComparison.OrdinalIgnoreCase)
+                            && property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt32(out int version)) legacy = version < 3;
+                }
+                catch (JsonException) { }
+                if (legacy) AtomicFile.Write(Path.Combine(DirectoryPath, $"settings.pre-v0.12-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json"), original);
+            }
             AtomicFile.Write(SettingsPath, JsonSerializer.SerializeToUtf8Bytes(Normalize(copy), Options));
         }
     }

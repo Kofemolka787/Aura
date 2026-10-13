@@ -15,7 +15,9 @@ internal static class FreshSensorSampling
         {
             foreach (ISensor sensor in device.Sensors)
             {
-                if (sensor.SensorType is not (SensorType.Temperature or SensorType.Load)) continue;
+                bool dynamic = sensor.SensorType is SensorType.Temperature or SensorType.Load or SensorType.Clock or SensorType.Power
+                    || sensor.SensorType == SensorType.SmallData && sensor.Name.Contains("Used", StringComparison.OrdinalIgnoreCase);
+                if (!dynamic) continue;
                 // LHM 0.9.6 keeps the old Value when a driver silently fails. Its concrete
                 // Sensor is internal, but exposes a public nullable Value setter. The pinned
                 // adapter clears that cache before Update; a changed contract fails closed.
@@ -23,7 +25,7 @@ internal static class FreshSensorSampling
                 {
                     PropertyInfo? property = type.GetProperty(nameof(ISensor.Value), BindingFlags.Instance | BindingFlags.Public);
                     if (type.Assembly != typeof(ISensor).Assembly || property?.SetMethod?.IsPublic != true || property.PropertyType != typeof(float?))
-                        throw new NotSupportedException("Не удалось очистить кэш датчика для подтверждения свежей температуры.");
+                        throw new NotSupportedException("Не удалось очистить кэш для подтверждения свежих показаний датчика.");
                     return property;
                 });
                 setter.SetValue(sensor, null);

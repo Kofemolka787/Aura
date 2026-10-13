@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Linq;
+using System.Collections.Generic;
 using ColorForge.Models;
 
 namespace ColorForge.Services;
@@ -11,7 +12,10 @@ public sealed class ColorEngine : IDisposable
 
 	private MonitorTarget? _activeTarget;
     private readonly ColorBaselineStore _baselines = new();
+    private readonly ColorBaselineStore _temporaryBaselines = new("GameColorRecovery");
+    private readonly List<MonitorTarget> _temporaryTargets = new();
     private ColorBaseline? _activeBaseline;
+    public bool LastApplySucceeded { get; private set; }
 
 	public bool NvidiaAvailable => _nvidia.IsAvailable;
 
@@ -20,13 +24,21 @@ public sealed class ColorEngine : IDisposable
 	public void Apply(DisplayProfile profile, MonitorTarget target)
 	{
         using var operation = HardwareOperations.Enter();
+        if (_temporaryBaselines.Load(GetDisplayIdentity(target.DeviceName))?.Modified == true)
+            throw new InvalidOperationException("Сначала нужен возврат сохранённого игрового цвета; снимок не перезаписывается.");
+        ApplyCore(profile, target);
+    }
+    private void ApplyCore(DisplayProfile profile, MonitorTarget target)
+    {
+		LastApplySucceeded = false;
 		LastWarning = string.Empty;
         ColorBaseline baseline;
         try
         {
             string id = GetDisplayIdentity(target.DeviceName);
             ColorBaseline? saved = _baselines.Load(id);
-            baseline = saved?.Modified == true ? saved : _baselines.Save(new ColorBaseline { DeviceId = id, Gamma = GetRamp(target.DeviceName), NvidiaLevel = _nvidia.GetLevel(target.DeviceName) });
+            NvidiaColorState? nvidia = saved?.Modified == true ? saved.NvidiaState : _nvidia.ReadState(target.DeviceName);
+            baseline = saved?.Modified == true ? saved : _baselines.Save(new ColorBaseline { DeviceId = id, Gamma = GetRamp(target.DeviceName), NvidiaLevel = nvidia?.Normalized, NvidiaState = nvidia });
             if (baseline.Gamma == null && !baseline.NvidiaLevel.HasValue)
                 throw new InvalidOperationException("Исходный цвет монитора не удалось сохранить; запись пропущена.");
         }
@@ -45,6 +57,7 @@ public sealed class ColorEngine : IDisposable
         bool flag = baseline.Gamma != null && ApplyGamma(profile, target.DeviceName);
 		int percent = Math.Clamp((int)Math.Round(50.0 + (double)(profile.Saturation - 100) * 0.45 + (double)(profile.Vibrance - 50) * 0.5), 0, 100);
         bool flag2 = baseline.NvidiaLevel.HasValue && _nvidia.SetPercent(percent, target.DeviceName);
+        LastApplySucceeded = flag || flag2;
 		if (!flag && !flag2)
 		{
 			LastWarning = "Драйвер отклонил настройки выбранного монитора.";
@@ -61,6 +74,59 @@ public sealed class ColorEngine : IDisposable
         _activeBaseline = baseline;
 	}
 
+    public void ApplyTemporary(DisplayProfile profile, MonitorTarget target)
+    {
+        using var operation = HardwareOperations.Enter();
+        // Both snapshots are flushed before Apply can reset the former active monitor.
+        CaptureTemporary(target);
+        if (_activeTarget != null && _activeTarget.DeviceName != target.DeviceName) CaptureTemporary(_activeTarget);
+        ApplyCore(profile, target);
+        if (!LastApplySucceeded) throw new InvalidOperationException(LastWarning);
+    }
+    private void CaptureTemporary(MonitorTarget target)
+    {
+        string id = GetDisplayIdentity(target.DeviceName);
+        if (_temporaryBaselines.Load(id)?.Modified == true)
+            throw new InvalidOperationException("Есть незавершённый возврат игрового цвета; новый профиль не записывается.");
+        NvidiaColorState? nvidia = _nvidia.ReadState(target.DeviceName);
+        ColorBaseline snapshot = new() { DeviceId = id, Gamma = GetRamp(target.DeviceName), NvidiaLevel = nvidia?.Normalized, NvidiaState = nvidia,
+            Modified = true, PreviouslyModified = _baselines.Load(id)?.Modified == true };
+        if (snapshot.Gamma == null && !snapshot.NvidiaLevel.HasValue)
+            throw new InvalidOperationException("Текущий цвет для возврата из игры не прочитан; профиль пропущен.");
+        _temporaryBaselines.Save(snapshot);
+        _temporaryTargets.Add(target);
+    }
+    public void RestoreTemporaryProfiles()
+    {
+        List<Exception> errors = new();
+        foreach (MonitorTarget target in _temporaryTargets.ToArray())
+        {
+            try { RestoreTemporary(target); _temporaryTargets.Remove(target); }
+            catch (Exception error) { errors.Add(error); }
+        }
+        if (errors.Count > 0) throw new AggregateException("Возврат игрового цвета не подтверждён; снимки сохранены.", errors);
+    }
+    private void RestoreTemporary(MonitorTarget target)
+    {
+        using var operation = HardwareOperations.Enter();
+        string id = GetDisplayIdentity(target.DeviceName);
+        ColorBaseline? snapshot = _temporaryBaselines.Load(id);
+        if (snapshot?.Modified != true) return;
+        bool gamma = snapshot.Gamma == null || (SetRamp(target.DeviceName, snapshot.Gamma) && GetRamp(target.DeviceName)?.SequenceEqual(snapshot.Gamma) == true);
+        bool vibrance = snapshot.NvidiaState != null ? _nvidia.SetState(snapshot.NvidiaState, target.DeviceName)
+            : !snapshot.NvidiaLevel.HasValue || _nvidia.SetLevel(snapshot.NvidiaLevel.Value, target.DeviceName);
+        if (!gamma || !vibrance) throw new InvalidOperationException("Драйвер не подтвердил точный возврат цвета до игры. Снимок сохранён.");
+        ColorBaseline? original = _baselines.Load(id);
+        if (original != null)
+        {
+            original.Modified = snapshot.PreviouslyModified;
+            _baselines.Save(original);
+        }
+        if (snapshot.PreviouslyModified && original != null) { _activeTarget = target; _activeBaseline = original; }
+        else if (_activeTarget?.DeviceName == target.DeviceName) { _activeTarget = null; _activeBaseline = null; }
+        snapshot.Modified = false; _temporaryBaselines.Save(snapshot);
+    }
+
 	public void Reset()
 	{
         using var operation = HardwareOperations.Enter();
@@ -74,6 +140,7 @@ public sealed class ColorEngine : IDisposable
 
 	public void Reset(MonitorTarget target)
 	{
+        RestoreTemporary(target);
         using var operation = HardwareOperations.Enter();
 		ResetTarget(target);
 		MonitorTarget? activeTarget = _activeTarget;
@@ -90,7 +157,8 @@ public sealed class ColorEngine : IDisposable
         if (baseline == null || !baseline.Modified) return;
         if (baseline.DeviceId != GetDisplayIdentity(target.DeviceName)) throw new InvalidOperationException("Монитор заменён; прежняя калибровка на новое устройство не записывается.");
         bool gamma = baseline.Gamma == null || (SetRamp(target.DeviceName, baseline.Gamma) && GetRamp(target.DeviceName)?.SequenceEqual(baseline.Gamma) == true);
-        bool vibrance = !baseline.NvidiaLevel.HasValue || _nvidia.SetLevel(baseline.NvidiaLevel.Value, target.DeviceName);
+        bool vibrance = baseline.NvidiaState != null ? _nvidia.SetState(baseline.NvidiaState, target.DeviceName)
+            : !baseline.NvidiaLevel.HasValue || _nvidia.SetLevel(baseline.NvidiaLevel.Value, target.DeviceName);
         if (!gamma || !vibrance) throw new InvalidOperationException("Драйвер не подтвердил возврат исходного цвета. Снимок сохранён.");
         baseline.Modified = false;
         _baselines.Save(baseline);

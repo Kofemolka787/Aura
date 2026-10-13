@@ -18,7 +18,7 @@
           <Image Source="pack://application:,,,/Assets/aura-mark.png" Width="26" Height="26" Stretch="Uniform" />
           <TextBlock Text="AURA" FontWeight="Black" FontSize="13" Margin="8,0,0,0" VerticalAlignment="Center" />
           <Border Background="#2E203B" CornerRadius="8" Margin="9,0,0,0" Padding="8,3">
-            <TextBlock Text="v0.11" FontSize="10" Foreground="#D5B7FF" />
+            <TextBlock Text="v0.12" FontSize="10" Foreground="#D5B7FF" />
           </Border>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -453,46 +453,49 @@
                   </Grid.ColumnDefinitions>
                   <StackPanel>
                     <TextBlock Text="ПРИВЯЗКИ ИГР" FontSize="10" FontWeight="Bold" Foreground="#C4A2DD" />
-                    <TextBlock Text="Профиль включится, когда процесс игры запущен" FontSize="10" Foreground="#817888" Margin="0,3,0,0" />
+                    <TextBlock Text="Цвет, прицел и оверлей · правила Alt-Tab в карточке" FontSize="10" Foreground="#817888" Margin="0,3,0,0" />
                   </StackPanel>
                   <TextBlock Name="GamesCountText" Grid.Column="1" Text="3 ПРОФИЛЯ" FontSize="9" Foreground="#9A79B5" VerticalAlignment="Center" />
                 </Grid>
-                <DataGrid Name="GameGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" AlternationCount="2" CellEditEnding="GameGrid_CellEditEnding">
-                  <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="СТАТУС" Width="86">
-                      <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                          <CheckBox Style="{StaticResource ToggleSwitch}" Width="40" Height="24" HorizontalAlignment="Center" IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        </DataTemplate>
-                      </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="ПРОЦЕСС" Width="*" Binding="{Binding ProcessName, UpdateSourceTrigger=LostFocus}" />
-                    <DataGridTextColumn Header="ПРОФИЛЬ AURA" Width="*" Binding="{Binding ProfileName, UpdateSourceTrigger=LostFocus}" />
-                  </DataGrid.Columns>
-                </DataGrid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl Name="GameCards">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Background="#15121C" BorderBrush="#3B3047" BorderThickness="1" CornerRadius="12" Width="265" Margin="0,0,10,10" Padding="12">
+                          <StackPanel>
+                            <Button Style="{StaticResource SceneCardButton}" Tag="{Binding}" Click="GameCard_Click" Padding="10">
+                              <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding ProcessName}" Foreground="#91869E" FontSize="10" Margin="0,4,0,6" />
+                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Foreground="#C3B0D5" FontSize="10" />
+                                <TextBlock Text="Автоматическое применение выключено" Foreground="#FFC35C" FontSize="9" Margin="0,5,0,0">
+                                  <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Enabled}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                </TextBlock>
+                              </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SecondaryButton}" Content="Настроить карточку" Tag="{Binding}" Click="EditGame_Click" Margin="0,8,0,0" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
               </Grid>
             </Border>
             <Border Grid.Row="3" Background="#15121A" BorderBrush="#312B38" BorderThickness="1" CornerRadius="13" Margin="0,10,0,0" Padding="12,9">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Button Style="{StaticResource PrimaryButton}" Content="＋  Добавить .exe" Padding="16,7" Margin="0,0,8,0" Click="AddGame_Click" />
-                <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Удалить" Padding="14,7" Margin="0,0,8,0" Click="DeleteGame_Click" />
-                <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="NVIDIA Max" Padding="13,7" Margin="0,0,8,0" ToolTip="Максимальная производительность NVIDIA только для выбранной игры" Click="ApplyNvidiaGameProfile_Click" />
-                <Button Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Сброс NVIDIA" Padding="13,7" Click="ResetNvidiaGameProfile_Click" />
-                <StackPanel Grid.Column="5" VerticalAlignment="Center" Margin="0,0,12,0">
-                  <TextBlock Text="Автопереключение" FontWeight="SemiBold" FontSize="11" />
-                  <TextBlock Name="AutoSwitchStatusText" Text="Работает в фоне" Foreground="#817888" FontSize="9" />
-                </StackPanel>
-                <CheckBox Name="AutoSwitchCheck" Grid.Column="6" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" Checked="AutoSwitch_Changed" Unchecked="AutoSwitch_Changed" />
-              </Grid>
+              <StackPanel>
+                <TextBlock Name="SelectedGameText" Text="Выбери карточку игры" Foreground="#C3B0D5" Margin="0,0,0,8" />
+                <WrapPanel>
+                  <Button Style="{StaticResource PrimaryButton}" Content="＋ Добавить .exe" Padding="12,7" Margin="0,0,8,6" Click="AddGame_Click" />
+                  <Button Style="{StaticResource SecondaryButton}" Content="Настроить" Padding="12,7" Margin="0,0,8,6" Click="EditGame_Click" />
+                  <Button Style="{StaticResource SecondaryButton}" Content="Удалить" Padding="12,7" Margin="0,0,8,6" Click="DeleteGame_Click" />
+                  <Button Style="{StaticResource SecondaryButton}" Content="NVIDIA Max" Padding="12,7" Margin="0,0,8,6" Click="ApplyNvidiaGameProfile_Click" />
+                  <Button Style="{StaticResource SecondaryButton}" Content="Сброс NVIDIA" Padding="12,7" Margin="0,0,14,6" Click="ResetNvidiaGameProfile_Click" />
+                  <CheckBox Name="AutoSwitchCheck" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" Checked="AutoSwitch_Changed" Unchecked="AutoSwitch_Changed" />
+                  <StackPanel VerticalAlignment="Center" Margin="8,0,0,6"><TextBlock Text="Автопереключение" /><TextBlock Name="AutoSwitchStatusText" FontSize="9" Foreground="#817888" /></StackPanel>
+                </WrapPanel>
+              </StackPanel>
             </Border>
           </Grid>
           <Grid Name="CrosshairPage" Row="1" Visibility="Collapsed">
@@ -644,7 +647,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="AURA WINDOWS TUNER" FontSize="10" FontWeight="Bold" Foreground="#C999F1" />
                       <TextBlock Text="Оптимизация без сомнительных скриптов" FontSize="19" FontWeight="Bold" Margin="0,3,0,0" />
-                      <TextBlock Text="Перед изменениями AURA пытается создать точку восстановления и пишет журнал в %TEMP%." Foreground="#91869B" FontSize="10" Margin="0,4,0,0" />
+                      <TextBlock Text="Перед изменениями AURA сохраняет исходные значения в защищённом журнале %ProgramData%\AURA. Точка восстановления — дополнительная попытка." Foreground="#91869B" FontSize="10" Margin="0,4,0,0" />
                     </StackPanel>
                     <Border Grid.Column="2" Background="#14231B" BorderBrush="#2C6D49" BorderThickness="1" CornerRadius="10" Padding="12,7" VerticalAlignment="Center">
                       <StackPanel Orientation="Horizontal">
@@ -662,21 +665,21 @@
                     <UniformGrid Columns="3">
                       <Button Name="LowPerformanceButton" Style="{StaticResource SceneCardButton}" Tag="Low" Margin="0,0,10,0" Click="PerformanceProfile_Click">
                         <StackPanel Margin="16,14">
-                          <TextBlock Text="LOW PERFORMANCE" FontWeight="Bold" FontSize="14" />
+                          <TextBlock Text="МИНИМАЛЬНЫЙ" FontWeight="Bold" FontSize="14" />
                           <TextBlock Text="Безопасная очистка лишнего фона и телеметрии. Подходит для рабочего ПК." Foreground="#8F8598" TextWrapping="Wrap" FontSize="9" Margin="0,6,0,12" />
                           <TextBlock Text="БАЗОВЫЙ · ОБРАТИМЫЙ" Foreground="#68DFA0" FontSize="8" FontWeight="Bold" />
                         </StackPanel>
                       </Button>
                       <Button Name="MediumPerformanceButton" Style="{StaticResource SceneCardButton}" Tag="Medium" Margin="0,0,10,0" Click="PerformanceProfile_Click">
                         <StackPanel Margin="16,14">
-                          <TextBlock Text="MEDIUM PERFORMANCE" FontWeight="Bold" FontSize="14" />
+                          <TextBlock Text="СБАЛАНСИРОВАННЫЙ" FontWeight="Bold" FontSize="14" />
                           <TextBlock Text="Игровой режим, лёгкий интерфейс и меньше фоновой активности без удаления Store/Xbox." Foreground="#8F8598" TextWrapping="Wrap" FontSize="9" Margin="0,6,0,12" />
                           <TextBlock Text="РЕКОМЕНДОВАНО ДЛЯ ИГР" Foreground="#C997FF" FontSize="8" FontWeight="Bold" />
                         </StackPanel>
                       </Button>
                       <Button Name="UltraPerformanceButton" Style="{StaticResource SceneCardButton}" Tag="Ultra" Click="PerformanceProfile_Click">
                         <StackPanel Margin="16,14">
-                          <TextBlock Text="ULTRA PERFORMANCE" FontWeight="Bold" FontSize="14" />
+                          <TextBlock Text="РАСШИРЕННЫЙ" FontWeight="Bold" FontSize="14" />
                           <TextBlock Text="Выбирает максимум доступных твиков; опасные службы и защита Windows всё равно не отключаются." Foreground="#8F8598" TextWrapping="Wrap" FontSize="9" Margin="0,6,0,12" />
                           <TextBlock Text="ТРЕБУЕТ ПРОВЕРКИ СПИСКА" Foreground="#FFC35C" FontSize="8" FontWeight="Bold" />
                         </StackPanel>
@@ -869,6 +872,15 @@
                   </Border>
                   <Border Style="{StaticResource CardStyle}" Margin="0,14,0,0" Padding="18">
                     <StackPanel>
+                      <TextBlock Text="ИГРОВОЙ ОВЕРЛЕЙ И КЛАВИШИ" FontWeight="Bold" Foreground="#C4A2DD" />
+                      <Button Style="{StaticResource SecondaryButton}" Content="Настроить общий оверлей" Click="OverlaySettings_Click" Margin="0,12,0,8" />
+                      <Button Style="{StaticResource SecondaryButton}" Content="Глобальные горячие клавиши" Click="HotkeysSettings_Click" />
+                      <TextBlock Name="HotkeyStatusText" Text="Ожидание регистрации" TextWrapping="Wrap" Foreground="#91869B" FontSize="10" Margin="0,10,0,0" />
+                      <TextBlock Text="FPS использует активную карточку игры или выбранный процесс в диагностике. Показывается окно последних кадров, а не полный замер." TextWrapping="Wrap" Foreground="#817888" FontSize="10" Margin="0,8,0,0" />
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource CardStyle}" Margin="0,14,0,0" Padding="18">
+                    <StackPanel>
                       <TextBlock Text="ДАННЫЕ AURA" FontSize="10" FontWeight="Bold" Foreground="#C4A2DD" />
                       <TextBlock Text="Файл настроек" Foreground="#817888" FontSize="9" Margin="0,13,0,5" />
                       <Border Background="#121017" CornerRadius="9" Padding="10">
@@ -902,7 +914,7 @@
                       </StackPanel>
                       <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                         <Border Background="#2B1C39" CornerRadius="8" Padding="9,4" HorizontalAlignment="Right">
-                          <TextBlock Text="v0.11" Foreground="#D5B4EF" FontSize="9" FontWeight="Bold" />
+                          <TextBlock Text="v0.12" Foreground="#D5B4EF" FontSize="9" FontWeight="Bold" />
                         </Border>
                         <Button Style="{StaticResource SecondaryButton}" Content="Выйти" Padding="12,5" MinHeight="30" Margin="0,7,0,0" Click="Logout_Click" />
                       </StackPanel>

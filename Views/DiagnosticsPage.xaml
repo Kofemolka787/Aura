@@ -94,11 +94,33 @@
             </Grid>
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
-              <ComboBox x:Name="ProcessCombo" />
+              <ComboBox x:Name="ProcessCombo" SelectionChanged="Process_Changed" />
               <ComboBox x:Name="DurationCombo" Grid.Column="2" SelectedIndex="1">
                 <ComboBoxItem Content="15 сек" Tag="15"/><ComboBoxItem Content="30 сек" Tag="30"/><ComboBoxItem Content="60 сек" Tag="60"/>
               </ComboBox>
             </Grid>
+            <StackPanel x:Name="BenchmarkContextPanel" Margin="0,12,0,0">
+              <TextBlock Text="ПОВТОРНЫЕ ПРОГОНЫ" Foreground="#C493ED" FontWeight="Bold" FontSize="10" />
+              <ComboBox x:Name="RepeatsCombo" SelectedIndex="0" SelectionChanged="Repeats_Changed" Margin="0,7,0,0">
+                <ComboBoxItem Content="1 прогон · быстрый замер" Tag="1" />
+                <ComboBoxItem Content="Серия · 3 прогона" Tag="3" />
+                <ComboBoxItem Content="Серия · 5 прогонов" Tag="5" />
+              </ComboBox>
+              <StackPanel x:Name="SeriesFieldsPanel" Visibility="Collapsed">
+              <TextBlock Text="Название варианта серии (например До / После)" Foreground="#91869B" FontSize="9" Margin="0,8,0,4" />
+              <TextBox x:Name="VariantBox" Text="До" MaxLength="64" ToolTip="Вариант, например До или После настройки AURA" />
+              <TextBlock Text="Сцена: карта / маршрут / встроенный бенчмарк" Foreground="#91869B" FontSize="9" Margin="0,8,0,0" />
+              <TextBox x:Name="SceneBox" MaxLength="128" Margin="0,6,0,0" ToolTip="Одна и та же карта, маршрут или встроенный бенчмарк" />
+              <TextBlock Text="Графика: пресет, разрешение игры и масштаб рендера" Foreground="#91869B" FontSize="9" Margin="0,8,0,0" />
+              <TextBox x:Name="GraphicsBox" MaxLength="128" Margin="0,6,0,0" ToolTip="Пресет графики и внутреннее разрешение / масштаб рендера" />
+              <TextBlock Text="Версия / номер сборки игры" Foreground="#91869B" FontSize="9" Margin="0,8,0,4" />
+              <TextBox x:Name="GameVersionBox" MaxLength="64" ToolTip="Номер сборки игры" />
+              <TextBlock Text="Версия драйвера GPU" Foreground="#91869B" FontSize="9" Margin="0,8,0,0" />
+              <TextBox x:Name="DriverVersionBox" MaxLength="64" Margin="0,6,0,0" ToolTip="Версия драйвера видеокарты; заполни по сведениям драйвера" />
+              <TextBlock Text="Оборудование, Windows и режим выбранного монитора записываются автоматически. Начало сцены перед каждым повтором выставляешь вручную." Foreground="#91869B" FontSize="9" TextWrapping="Wrap" Margin="0,8,0,0" />
+              <Button Style="{StaticResource SecondaryButton}" Content="Начать отдельную серию" Click="NewSeries_Click" Margin="0,8,0,0" />
+              </StackPanel>
+            </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
               <Button x:Name="StartBenchmarkButton" Style="{StaticResource PrimaryButton}" Content="▶  Начать замер" Padding="18,9" Click="StartBenchmark_Click" />
               <Button x:Name="CancelBenchmarkButton" Style="{StaticResource SecondaryButton}" Content="Отмена" Padding="15,9" Margin="8,0,0,0" IsEnabled="False" Click="CancelBenchmark_Click" />
@@ -138,9 +160,13 @@
           </Canvas>
           <TextBlock x:Name="FrameGraphScale" Foreground="#91869B" FontSize="9" Margin="0,5,0,8"/>
           <ComboBox x:Name="HistoryCombo" DisplayMemberPath="HistoryLabel" SelectionChanged="History_Changed"/>
-          <TextBlock Text="Сравнение: сначала замер до изменений, затем после" Foreground="#91869B" FontSize="9" Margin="0,10,0,4"/>
+          <TextBlock Text="Одиночные замеры · одинаковые условия проверь вручную" Foreground="#91869B" FontSize="9" Margin="0,10,0,4"/>
           <ComboBox x:Name="CompareBeforeCombo" DisplayMemberPath="HistoryLabel"/>
           <ComboBox x:Name="CompareAfterCombo" DisplayMemberPath="HistoryLabel" Margin="0,6,0,0"/>
+          <TextBlock Text="Серии до / после · все прогоны и их разброс" Foreground="#C493ED" FontSize="10" Margin="0,14,0,6" />
+          <ComboBox x:Name="SeriesBeforeCombo" DisplayMemberPath="Label" />
+          <ComboBox x:Name="SeriesAfterCombo" DisplayMemberPath="Label" Margin="0,6,0,0" />
+          <Button Style="{StaticResource SecondaryButton}" Content="Сравнить серии" Click="CompareSeries_Click" Margin="0,8,0,0" HorizontalAlignment="Left" />
           <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
             <Button Style="{StaticResource SecondaryButton}" Content="Сравнить" Click="Compare_Click"/>
             <Button Style="{StaticResource SecondaryButton}" Content="Экспорт отчёта" Margin="8,0,0,0" Click="ExportReport_Click"/>

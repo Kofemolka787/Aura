@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-if (-not $OutputDirectory) { $OutputDirectory = Join-Path $ProjectRoot 'release-v0.11' }
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $ProjectRoot 'release-v0.12' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Choose a fresh output directory; existing releases are preserved.' }
 if ($RequireSigned -and (-not $SigningThumbprint -or $env:OS -ne 'Windows_NT')) { throw 'A Windows certificate store and SigningThumbprint are required.' }
@@ -63,10 +63,13 @@ try {
         $Counts+=@{Suite=$Path.BaseName;Total=[int]$Counter.total;Passed=[int]$Counter.passed;Skipped=[int]$Counter.notExecuted}
     }
     $Auth=Get-Content -LiteralPath 'Assets/Runtime/AuthClient.json' -Raw | ConvertFrom-Json
-    $Report=@{Version='0.11.0';CreatedAtUtc=[DateTime]::UtcNow.ToString('o');Sdk=(& dotnet --version);Sha256=(Get-FileHash -LiteralPath $Executable -Algorithm SHA256).Hash.ToLowerInvariant();Bytes=(Get-Item -LiteralPath $Executable).Length;Signature=$Signature;AuthenticationMode=$Auth.Mode;Tests=$Counts;Catalog='82 definitions verified';PowerShell=($PowerCount.ToString()+' fixture checks; no native writes');NativeWindowsQA='Not performed by this script'}
+    $Report=@{Version='0.12.0';CreatedAtUtc=[DateTime]::UtcNow.ToString('o');Sdk=(& dotnet --version);Sha256=(Get-FileHash -LiteralPath $Executable -Algorithm SHA256).Hash.ToLowerInvariant();Bytes=(Get-Item -LiteralPath $Executable).Length;Signature=$Signature;AuthenticationMode=$Auth.Mode;Tests=$Counts;Catalog='82 definitions verified';PowerShell=($PowerCount.ToString()+' fixture checks; no native writes');NativeWindowsQA='Not performed by this script'}
     if($LASTEXITCODE -ne 0){throw 'SDK version check failed.'}
     $Report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Stage 'release-report.json') -Encoding UTF8
     Copy-Item 'THIRD-PARTY-NOTICES.md','SOURCE-README.md','RELEASE-CHECKLIST.md' -Destination $Stage
+    Copy-Item 'docs' -Destination $Stage -Recurse
+    New-Item -Path (Join-Path $Stage 'server') -ItemType Directory | Out-Null
+    Copy-Item 'server/README.md' -Destination (Join-Path $Stage 'server')
     Copy-Item 'ThirdParty' -Destination $Stage -Recurse
     Copy-Item 'packages.lock.json' -Destination $Stage
     Move-Item -LiteralPath $Stage -Destination $OutputDirectory
